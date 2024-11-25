@@ -1,0 +1,33 @@
+{
+    "name": "uspdev/workflow",
+    "description": "Workflow",
+    "type": "library",
+    "minimum-stability": "dev",
+    "license": "GPL-2.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "Uspdev\\Workflow\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Masaki Kawabata Neto",
+            "email": "kawabata@usp.br"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0",
+        "uspdev/forms": "dev-main",
+        "spatie/laravel-activitylog": "^4.9",
+        "symfony/workflow": "^7.1",
+        "zerodahero/laravel-workflow": "^5.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Uspdev\\Workflow\\WorkflowServiceProvider"
+            ]
+        }
+    }
+}
