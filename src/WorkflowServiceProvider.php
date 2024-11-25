@@ -1,5 +1,5 @@
 <?php
-namespace Uspdev\Workflows;
+namespace Uspdev\Workflow;
 
 use Illuminate\Support\ServiceProvider;
 

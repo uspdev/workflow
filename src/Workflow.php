@@ -1,5 +1,5 @@
 <?php
-namespace Uspdev\Workflows;
+namespace Uspdev\Workflow;
 
 use App\Models\WorkflowObject;
 use Symfony\Component\Workflow\Definition;
