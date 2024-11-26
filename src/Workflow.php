@@ -8,7 +8,7 @@ use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
 use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Uspdev\Workflows\Models\WorkflowDefinition;
+use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Forms\Form;
 use Uspdev\Forms\Models\FormSubmission;
 use Spatie\Activitylog\Models\Activity;
