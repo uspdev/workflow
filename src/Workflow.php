@@ -330,7 +330,7 @@ class Workflow
         }
     }
 
-    public function submitForm(Request $request) 
+    public static function enviarFormulario(Request $request) 
     {
         $form = new Form();
         $form->handleSubmission($request);
