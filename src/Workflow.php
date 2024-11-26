@@ -312,7 +312,7 @@ class Workflow
 
                     $hasSubmission = $submissions->where('key', $workflowObject->id)->isNotEmpty();
                     if (!$hasSubmission) {
-                        return redirect()->route('workflows.show', ['id' => $workflowObject->id])
+                        return back()
                             ->with('error', 'Você deve enviar o formulário necessário antes de aplicar essa transição!');
                     }
                 }
@@ -329,4 +329,11 @@ class Workflow
 
         }
     }
+
+    public function submitForm(Request $request) 
+    {
+        $form = new Form();
+        $form->handleSubmission($request);
+    }
+    
 }
