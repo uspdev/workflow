@@ -40,8 +40,6 @@ class WorkflowDefinition extends Model
         $graph->setAttribute('graphviz.graph.rankdir', 'TB');
         $graph->setAttribute('graphviz.graph.size', '5,9');
         $graph->setAttribute('graphviz.graph.ratio', 'fill');
-        // $graph->setAttribute('graphviz.graph.nodesep', '0.2');
-        // $graph->setAttribute('graphviz.graph.ranksep', '0.1');
 
         $definition = $this->definition;
         $initialPlaces = is_array($definition['initial_places']) ? $definition['initial_places'] : [$definition['initial_places']];

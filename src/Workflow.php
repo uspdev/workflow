@@ -99,7 +99,6 @@ class Workflow
     public static function obterDadosDoObjeto($workflowObjectId)
     {
         $workflowObject = Workflow::obterWorkflowObject($workflowObjectId);
-        $currentState = $workflowObject->state;
 
         $workflowDefinition = Workflow::obterWorkflowDefinition($workflowObject->workflow_definition_name);
         $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
@@ -142,7 +141,7 @@ class Workflow
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('adminworkflows.edit', ['adminworkflow' => $request->name])
+            return back()
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -161,7 +160,7 @@ class Workflow
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('adminworkflows.create')
+            return back()
                 ->withErrors($validator)
                 ->withInput();
         }
