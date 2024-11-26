@@ -4,7 +4,7 @@ namespace Uspdev\Workflow\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
-use Uspdev\Workflows\Models\WorkflowDefinition;
+use Uspdev\Workflow\Models\WorkflowDefinition;
 
 class WorkflowObject extends Model 
 {

@@ -1,7 +1,6 @@
 <?php
 namespace Uspdev\Workflow;
 
-use App\Models\WorkflowObject;
 use Symfony\Component\Workflow\Definition;
 use Symfony\Component\Workflow\Transition;
 use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
@@ -9,6 +8,7 @@ use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Uspdev\Workflow\Models\WorkflowDefinition;
+use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Forms\Form;
 use Uspdev\Forms\Models\FormSubmission;
 use Spatie\Activitylog\Models\Activity;
