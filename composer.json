@@ -21,7 +21,8 @@
         "uspdev/forms": "dev-main",
         "spatie/laravel-activitylog": "^4.9",
         "symfony/workflow": "^7.1",
-        "zerodahero/laravel-workflow": "^5.0"
+        "zerodahero/laravel-workflow": "^5.0",
+        "graphp/graph": "^1@dev"
     },
     "extra": {
         "laravel": {
