@@ -8,7 +8,7 @@ use Fhaculty\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\QueryException;
-use Uspdev\Workflows\Models\WorkflowObject;
+use Uspdev\Workflow\Models\WorkflowObject;
 
 class WorkflowDefinition extends Model
 {
