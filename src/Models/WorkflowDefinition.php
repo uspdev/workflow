@@ -4,7 +4,7 @@ namespace Uspdev\Workflow\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Fhaculty\Graph\Graph;
+use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\QueryException;
@@ -66,7 +66,7 @@ class WorkflowDefinition extends Model
                 $label .= "\nMetadata:\n" . $metadata ."\n";
             }
 
-            $vertex = $graph->createVertex($placeName);
+            $vertex = $graph->createVertex(array('name' => $placeName));
             $vertex->setAttribute('graphviz.shape', 'circle'); 
 
             if (in_array($placeName, $initialPlaces)) {
@@ -82,7 +82,7 @@ class WorkflowDefinition extends Model
             $fromPlace = $vertices[$transition['from']];
             $toPlace = $vertices[$transition['to']];
 
-            $edge = $fromPlace->createEdgeTo($toPlace);
+            $edge = $graph->createEdgeDirected($fromPlace, $toPlace);
             $edge->setAttribute('graphviz.label', $transitionName);
 
         }
