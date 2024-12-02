@@ -8,7 +8,8 @@ use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\QueryException;
-use Uspdev\Workflow\Models\WorkflowObject;
+use Uspdev\Workflow\Models\User;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class WorkflowDefinition extends Model
 {
@@ -28,10 +29,15 @@ class WorkflowDefinition extends Model
         'definition' => 'array', 
     ];
 
-    public function workflowObjects()
+
+    public function users()
     {
-        return $this->hasMany(WorkflowObject::class);
+        return $this->belongsToMany(User::class, 'user_workflow_definition', 'workflow_definition_name', 'user_codpes', 'name', 'codpes')
+                    ->withPivot('place')
+                    ->withTimestamps();
     }
+
+    
 
     public function generatePng()
     {

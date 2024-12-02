@@ -13,7 +13,7 @@ class WorkflowObject extends Model
     protected $fillable = [
         'state',
         'workflow_definition_name',
-        'user_id',
+        'user_codpes',
     ];
 
     public function workflowDefinition()
