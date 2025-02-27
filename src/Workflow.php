@@ -6,16 +6,17 @@ use stdClass;
 use App\Models\User;
 use Uspdev\Forms\Form;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Forms\Models\FormSubmission;
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Facades\Validator;
-use Uspdev\Workflow\Models\WorkflowObject;
 use Symfony\Component\Workflow\Definition;
 use Symfony\Component\Workflow\Transition;
+use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
 use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
@@ -225,10 +226,26 @@ class Workflow
         $workflowsTransitions['enabled'] =  Workflow::obterNomeDasTransitionsHabilitadas($workflowInstance, $workflowObject);
         $workflowsTransitions['all'] =  Workflow::obterNomeDasTransitions($workflowInstance);
         $workflowsTransitions['currentState'] =  $workflowObject->state;
+        $workflowsTransitions['allowed'] = [];
 
-        $formHtml = Workflow::obterHtml($workflowObject, $workflowDefinition);
-        $formHtml = str_replace("workflowDefinitionName", $workflowDefinition->name, $formHtml);
-        $formHtml = str_replace("place_name", $workflowDefinition->state, $formHtml);
+        $form = new Form($workflowObjectId);
+
+        $forms = [];
+        foreach($workflowsTransitions['enabled'] as $enabledTransition){
+            if(self::verificarFormParaTransition($enabledTransition, $workflowObject, $workflowDefinition)){
+                $workflowsTransitions['allowed'][] = $enabledTransition;
+            }
+            $formName = $workflowDefinition->definition['transitions'][$enabledTransition]['form'];
+
+            $formHtml = $form->generateHtml($formName);
+            $formHtml = str_replace("workflowDefinitionName", $workflowDefinition->name, $formHtml);
+            $formHtml = str_replace("place_name", $workflowObject->state, $formHtml);
+            $formHtml = str_replace("transition_name", $enabledTransition, $formHtml);
+
+            $formData['transition'] =  $enabledTransition;
+            $formData['html'] =  $formHtml;
+            $forms[] = $formData;
+        }
 
         $title = $workflowDefinition->definition['title'];
         $activities = Workflow::obterAtividades($workflowObject->id);
@@ -238,7 +255,7 @@ class Workflow
         $workflowObjectData['workflowObject'] = $workflowObject;
         $workflowObjectData['workflowDefinition'] = $workflowDefinition;
         $workflowObjectData['workflowsTransitions'] = $workflowsTransitions;
-        $workflowObjectData['formHtml'] = $formHtml;
+        $workflowObjectData['forms'] = $forms;
         $workflowObjectData['title'] = $title;
         $workflowObjectData['activities'] = $activities;
         $workflowObjectData['formSubmissions'] = $formSubmissions;
@@ -371,18 +388,25 @@ class Workflow
         $workflowsTransitions['all'] =  Workflow::obterNomeDasTransitions($workflowInstance);
         $workflowsTransitions['currentState'] =  $state;
 
-        $formName = $workflowDefinition->definition['places'][$formattedState]['forms'];
+        $formHtmls = [];
+        foreach($workflowsTransitions['enabled'] as $enabledTransition){
+            $formName = $workflowDefinition->definition['transitions'][$enabledTransition]['form'];
 
-        $form = new Form();
-        $formHtml = $form->generateHtml($formName);
-        $formHtml = str_replace("workflowDefinitionName", $workflowDefinition->name, $formHtml);
-        $formHtml = str_replace("place_name", $formattedState, $formHtml);
+            $form = new Form();
+            $formHtml = $form->generateHtml($formName);
+            $formHtml = str_replace("workflowDefinitionName", $workflowDefinition->name, $formHtml);
+            $formHtml = str_replace("place_name", $formattedState, $formHtml);
+
+            $formData['transition'] =  $enabledTransition;
+            $formData['html'] =  $formHtml;
+            $forms[] = $formData;
+        }
 
         $workflowObjectData = [
         'workflowObject' => $fakeWorkflowObject,
         'workflowDefinition' => $workflowDefinition,
         'workflowsTransitions' => $workflowsTransitions,
-        'formHtml' => $formHtml,
+        'forms' => $forms,
         'title' => $workflowDefinition->definition['title'],
         'activities' => [],
         'formSubmissions' => [],
@@ -529,6 +553,61 @@ class Workflow
     }
 
     /**
+     * Verifica se o formulário requer que algum campo
+     * seja obrigatoriamente preenchido
+     * 
+     * @param String $formName
+     * @return boolean
+     */
+    public static function verificarFormRequired($formName)
+    {
+        $formDefinition = FormDefinition::where('name', $formName)->firstOrFail();
+        $formFields = $formDefinition->fields;
+
+        foreach($formFields as $field){
+            if(isset($field["required"])){
+                if ($field["required"]==true) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Verifica se a transition requer o preechimento
+     * de algum formulário e se esse formulário já foi
+     * submetido
+     * 
+     * @param String $transition
+     * @param WorkflowObject $workflowObject
+     * @param WorkflowDefinition $workflowDefinition
+     * @return boolean
+     */
+    public static function verificarFormParaTransition($transition, $workflowObject, $workflowDefinition)
+    {
+        if (isset($workflowDefinition->definition['transitions'][$transition]['form'])) { 
+            $formName = $workflowDefinition->definition['transitions'][$transition]['form'];
+
+            $form = new Form();
+            if ($form->getDefinition($formName) != null) {
+                
+                $formRequired = self::verificarFormRequired($formName);
+                if ($formRequired) {
+                    $cond['form_definition_id'] = $form->getDefinition($formName)->id;
+
+                    $submissions = FormSubmission::where($cond)->get();
+                    $hasSubmission = $submissions->where('key', $workflowObject->id)->isNotEmpty();
+                    if (!$hasSubmission) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * Verifica se um WorkflowObject passado por seu id pode realizar certa
      * transição também passada por parâmetro. Caso possa, o método aplica essa
      * tal transição e salva o objeto com seu novo estado.
@@ -551,20 +630,12 @@ class Workflow
 
             $workflow = SELF::criarSymfonyWorkflow($workflowDefinition);
             if ($workflow->can($workflowObject, $transition)) {
+                $success = self::verificarFormParaTransition($transition, $workflowObject, $workflowDefinition);
 
-                if (isset($workflowDefinition->definition['places'][$workflowObject->state]['forms'])) { 
-                    $form = new Form();
-                    if ($form->getDefinition($workflowDefinition->definition['places'][$workflowObject->state]['forms']) != null) {
-                        $cond['form_definition_id'] = $form->getDefinition($workflowDefinition->definition['places'][$workflowObject->state]['forms'])->id;
-    
-                        $submissions = FormSubmission::where($cond)->get();
-                        $hasSubmission = $submissions->where('key', $workflowObject->id)->isNotEmpty();
-                        if (!$hasSubmission) {
-                            DB::rollback();
-                            return 0;
-                        }
-                    }
-                }
+                if (!$success) {
+                    DB::rollback();
+                    return 0;
+                } 
                 DB::commit();
 
                 $workflow->apply($workflowObject, $transition);
@@ -586,19 +657,10 @@ class Workflow
 
         if ($workflow->can($workflowObject, $transition)) {
 
-            if (isset($workflowDefinition->definition['places'][$workflowObject->state]['forms'])) {
-                $form = new Form();
-                if ($form->getDefinition($workflowDefinition->definition['places'][$workflowObject->state]['forms']) != null) {
-                    $cond['form_definition_id'] = $form->getDefinition($workflowDefinition->definition['places'][$workflowObject->state]['forms'])->id;
-
-                    $submissions = FormSubmission::where($cond)->get();
-                    $hasSubmission = $submissions->where('key', $workflowObject->id)->isNotEmpty();
-                    if (!$hasSubmission) {
-                        return $workflowObject->id;
-                    }
-                     
-                }
-            }
+            $success = self::verificarFormParaTransition($transition, $workflowObject, $workflowDefinition);
+            if (!$success) {
+                return $workflowObject->id;
+            } 
 
             $workflow->apply($workflowObject, $transition);
 
@@ -617,6 +679,7 @@ class Workflow
     public static function enviarFormulario(Request $request)
     {
         if ($request->input('form_key') == config('forms.defaultKey')) {
+
             $workflowDefinitionName = $request->input('definition_name');
 
             $workflow_definition_name = ['workflow_definition_name' => $workflowDefinitionName];
