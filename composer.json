@@ -20,6 +20,7 @@
         "illuminate/support": "^11.0",
         "uspdev/forms": "dev-main",
         "spatie/laravel-activitylog": "^4.9",
+        "spatie/laravel-permission": "^6.15",
         "symfony/workflow": "^7.1",
         "zerodahero/laravel-workflow": "^5.0",
         "graphp/graph": "^1@dev",

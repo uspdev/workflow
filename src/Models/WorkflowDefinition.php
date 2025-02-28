@@ -8,7 +8,6 @@ use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\QueryException;
-use Uspdev\Workflow\Models\WorkflowObject;
 
 class WorkflowDefinition extends Model
 {
@@ -28,17 +27,13 @@ class WorkflowDefinition extends Model
         'definition' => 'array', 
     ];
 
-    public function workflowObjects()
-    {
-        return $this->hasMany(WorkflowObject::class);
-    }
-
+    
     public function generatePng()
     {
         $graph = new Graph();
 
         $graph->setAttribute('graphviz.graph.rankdir', 'TB');
-        $graph->setAttribute('graphviz.graph.size', '5,9');
+        $graph->setAttribute('graphviz.graph.size', '5,15');
         $graph->setAttribute('graphviz.graph.ratio', 'fill');
 
         $definition = $this->definition;
