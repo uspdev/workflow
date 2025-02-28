@@ -13,6 +13,10 @@
         {
             "name": "Masaki Kawabata Neto",
             "email": "kawabata@usp.br"
+        },
+        {
+            "name": "Antonio Augusto de Campos",
+            "email": "campos.antonio@usp.br"
         }
     ],
     "require": {
