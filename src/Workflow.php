@@ -335,8 +335,8 @@ class Workflow
 
         if (isset(json_decode($request->definition)->places)) {
             foreach (json_decode($request->definition)->places as $key => $value) {
-                if (is_array($value)) {
-                    Role::firstOrCreate(['name' => $key]);
+                if (is_array($value['role'])) {
+                    Role::firstOrCreate(['name' => $value['role']]);
                 } else {
                     Role::firstOrCreate(['name' => $key]);
 
