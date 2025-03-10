@@ -73,11 +73,12 @@ class WorkflowDefinition extends Model
         foreach ($definition['transitions'] as $transitionName => $transition) {
 
             $fromPlace = $vertices[$transition['from']];
-            $toPlace = $vertices[$transition['to']];
+            $toPlaces = is_array($transition['tos']) ? $transition['tos'] : [$transition['tos']];
 
-            $edge = $graph->createEdgeDirected($fromPlace, $toPlace);
-            $edge->setAttribute('graphviz.label', $transitionName);
-
+            foreach($toPlaces as $toPlace){
+                $edge = $graph->createEdgeDirected($fromPlace, $vertices[$toPlace]);
+                $edge->setAttribute('graphviz.label', $transitionName);
+            }
         }
 
         $graphviz = new GraphViz();
