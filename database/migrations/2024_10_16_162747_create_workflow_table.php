@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('workflow_objects', function (Blueprint $table) { // workflows
             $table->id(); 
-            $table->string('state')->nullable();
+            $table->json('state')->nullable();
             $table->string('workflow_definition_name');
             $table->foreign('workflow_definition_name')->references('name')->on('workflow_definitions')->onDelete('cascade');
 

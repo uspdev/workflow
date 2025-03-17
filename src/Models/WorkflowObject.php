@@ -16,6 +16,11 @@ class WorkflowObject extends Model
         'user_codpes',
     ];
 
+    protected $casts = [
+        'state' => 'array',
+    ];
+    
+
     public function workflowDefinition()
     {
         return $this->belongsTo(WorkflowDefinition::class);
@@ -23,8 +28,9 @@ class WorkflowObject extends Model
 
     public function getCurrentState()
     {
-        return $this->state;
+        return $this->state ?? [];
     }
+
     public function setCurrentState($state)
     {
         $this->state = $state;
