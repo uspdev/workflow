@@ -718,9 +718,17 @@ class Workflow
 
             $state = $workflow->apply($workflowObject, $transition);
             
-            $places = array_map(function($number) {
-                return $number > 1 ? 1 : $number;
-            }, $state->getPlaces());
+            $places = $state->getPlaces();
+
+            foreach ($places as $place => $number) {
+                if (isset($workflowDefinition->definition['places'][$place]['max'])) {
+                    $max = $workflowDefinition->definition['places'][$place]['max'];
+            
+                    if ($number > $max) {
+                        $places[$place] = $max;  
+                    }
+                }
+            }
             
             $workflowObject->state = $places;
             
