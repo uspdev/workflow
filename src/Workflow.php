@@ -157,8 +157,7 @@ class Workflow
 
         if (isset($definitionData['places'][$workflowObject->state]['forms'])) {
             $formName = $definitionData['places'][$workflowObject->state]['forms'];
-            $key = $workflowObject->id;
-            $form = new Form($key);
+            $form = new Form(['key' => $workflowObject->id]);
             $formHtml = $form->generateHtml($formName);
         } else {
             $formHtml = '';
@@ -235,7 +234,7 @@ class Workflow
         $workflowsTransitions['currentState'] =  $workflowObject->state;
         $workflowsTransitions['allowed'] = [];
 
-        $form = new Form($workflowObjectId);
+        $form = new Form(['key' =>$workflowObjectId]);
 
         $forms = [];
         
@@ -263,7 +262,7 @@ class Workflow
 
         $title = $workflowDefinition->definition['title'];
         $activities = Workflow::obterAtividades($workflowObject->id);
-        $form = new Form($workflowObject->id);
+        $form = new Form(['key' => $workflowObject->id]);
         $formSubmissions = $form->listSubmission();
         if (!Gate::allows('admin')) {
             $formSubmissions = $formSubmissions->filter(function ($submission) use ($workflowObject, $workflowDefinition) {
