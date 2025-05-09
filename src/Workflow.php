@@ -697,7 +697,7 @@ class Workflow
                 $currentState = $workflow->getMarking($workflowObject)->getPlaces();
                 $formattedState = implode(', ', array_keys($currentState));
                 $workflowObject->updateState($formattedState);
-                $workflowObject->state = $formattedState;
+                $workflowObject->state = $state;
                 $workflowObject->save();
             } else {
                 DB::rollback();
