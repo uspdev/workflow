@@ -22,7 +22,7 @@
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0",
-        "uspdev/forms": "dev-main",
+        "uspdev/forms": "^0.2",
         "spatie/laravel-activitylog": "^4.9",
         "spatie/laravel-permission": "^6.15",
         "symfony/workflow": "^7.1",
