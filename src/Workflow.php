@@ -344,7 +344,7 @@ class Workflow
         $workflow->definition = json_decode($request->definition);
         
         $def = json_decode($request->definition, true);
-        if (isset($def['places'])) {
+        if (isset($def['places'])) { // Verificar necessidade de excluir roles e permissions antigas
             foreach ($def['places'] as $key => $value) {
                 $keyRole = key($value['role']);
                 $roleName = $value['role'][$keyRole] ?? $key;
