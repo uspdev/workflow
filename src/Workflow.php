@@ -272,6 +272,9 @@ class Workflow
                 
                 $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
                 $fakeWorkflowObject = new \stdClass();
+                if (!is_array($to)) {
+                    $to = [$to => 1];
+                }
                 $fakeWorkflowObject->currentState = $to;
                 $enabledTransitions =  Workflow::obterNomeDasTransitionsHabilitadas($workflowInstance, null, $fakeWorkflowObject);
                 if (empty($enabledTransitions)) {
@@ -335,9 +338,27 @@ class Workflow
                 ->withErrors($validator)
                 ->withInput();
         }
+
         $workflow = WorkflowDefinition::where('name', $request->name)->firstOrFail();
         $workflow->description = $request->description;
         $workflow->definition = json_decode($request->definition);
+        
+        $def = json_decode($request->definition, true);
+        if (isset($def['places'])) {
+            foreach ($def['places'] as $key => $value) {
+                $keyRole = key($value['role']);
+                $roleName = $value['role'][$keyRole] ?? $key;
+        
+                $role = Role::firstOrCreate(['name' => $roleName]);
+        
+                $permission = Permission::firstOrCreate(['name' => $key]);
+        
+                if (!$role->hasPermissionTo($permission)) {
+                    $role->givePermissionTo($permission);
+                }
+            }
+        }
+
         $workflow->save();
     }
 
