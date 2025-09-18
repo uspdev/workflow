@@ -790,7 +790,7 @@ class Workflow
             $request->merge(['form_key' => $workflowObject->id]);
         }
 
-        $form = new Form();
+        $form = new Form(['editable' => true]);
         $form->handleSubmission($request);
         $id = $workflowObject->id ?? $request->input('form_key');
         self::aplicarTransition($id, $request->input('transition'), $request->input('definition_name'));
