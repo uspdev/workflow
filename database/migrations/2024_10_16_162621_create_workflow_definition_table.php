@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('workflow_definitions', function (Blueprint $table) { 
-            $table->string('name')->primary();
-            $table->string('description'); 
-            $table->json('definition'); 
-            $table->timestamps();
+            $table->string('name')->primary();  // 'name' of the definition acts as a primary key
+            $table->string('description');      // Description of the workflow definition
+            $table->json('definition');         // Definition of the workflow (json format)
+            $table->timestamps();                       // **Time that it was created(confirmar isso)
         });
     }
 

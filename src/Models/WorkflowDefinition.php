@@ -27,7 +27,17 @@ class WorkflowDefinition extends Model
         'definition' => 'array', 
     ];
 
-    
+    /**
+     *  Generates a '.png' image that displays a graph containing 
+     *  places and transitions of the  workflow using the 'Graphp' lib;
+     * 
+     *  - Places of the definition are represented as circular vertices on the graph;
+     *  - If the place is a initial palce, the color of the circle is turned to blue;
+     *  - The transitions on the workflow are represented by edges on the graph, linking each vertex with one another;
+     *  - Each edge contains the name of the transition it represents.
+     * 
+     *  @return void
+     */
     public function generatePng()
     {
         $graph = new Graph();
@@ -88,6 +98,15 @@ class WorkflowDefinition extends Model
         rename($tmpFilePath, $destinationPath);
     }
 
+    /**
+     *  Lista todas as definições de workflow que existam no momento
+     * 
+     *  - Acessa o diretório 'WORKFLOW_STORAGE_PATH' definido no arquivo '.env' (ver 'config/workflow.php' para alterar caminho padrão);
+     *  - Verifica todos os arquivos com a extensão '.json' (formato das definições);
+     *  - Retorna um array contendo somente o nome de cada definição.
+     * 
+     * @return array<array|string>
+     */
     public static function list(){
         $workflowStoragePath = config('workflow.workflow_storage_path');
 
@@ -103,6 +122,17 @@ class WorkflowDefinition extends Model
         }, $files);
     }
 
+    /**
+     *  Salva uma definição no banco de dados
+     * 
+     *  - Verifica a existência do arquivo '.json' da definição;
+     *  - Decodifica o json e cria a definition, salvando no banco de dados;
+     *  - Caso a  definição já exista no banco de dados, lança uma exception e não salva a definition duplicada;
+     * 
+     *  @param String $definitionName
+     *  @throws \Exception
+     *  @return String
+     */
     public static function deploy($definitionName)
     {
         $workflowStoragePath = config('workflow.workflow_storage_path');

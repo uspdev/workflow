@@ -26,9 +26,9 @@ class Workflow
 {
 
     /**
-     * Retorna todas as definições de workflow persistidas no banco de dados
+     *  Retorna todas as definições de workflow persistidas no banco de dados
      * 
-     * @return Array
+     *  @return Array
      */
     public static function obterTodosWorkflowDefinitions()
     {
@@ -36,11 +36,11 @@ class Workflow
     }
 
     /**
-     * Retorna uma definição de workflow
-     * Com o nome passado de parâmetro na chamada do método
+     *  Retorna uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
      * 
-     * @param String $definitionName
-     * @return WorkflowDefinition
+     *  @param String $definitionName
+     *  @return WorkflowDefinition
      */
     public static function obterWorkflowDefinition($definitionName)
     {
@@ -48,9 +48,9 @@ class Workflow
     }
 
     /**
-     * Retorna todas os objetos de workflow persistidos no banco de dados
+     *  Retorna todas os objetos de workflow persistidos no banco de dados
      * 
-     * @return Array
+     *  @return Array
      */
     public static function obterTodosWorkflowObjects()
     {
@@ -58,11 +58,11 @@ class Workflow
     }
 
     /**
-     * Retorna um objeto de workflow
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna um objeto de workflow
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * @param Integer $id
-     * @return WorkflowObject
+     *  @param Integer $id
+     *  @return WorkflowObject
      */
     public static function obterWorkflowObject($id)
     {
@@ -70,11 +70,19 @@ class Workflow
     }
 
     /**
-     * Retorna os registros de atividade para um objeto
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna os registros de atividade para um objeto
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * @param Integer $id
-     * @return Array
+     *  - Encontra a atividade relacionada ao workflow object com o id citado acima;
+     *  - Encontra a workflow definition relacionada ao objeto;
+     *  - Captura as propriedades da atividade;
+     *  - Verifica se o 'state' da atividade está ativo no 'place' atual do workflow object
+     *  - Encontra (Se possível) o causador da atividade
+     * 
+     *  - Formata toda a resposta e retona um array com os dados da atividade;
+     * 
+     *  @param Integer $id
+     *  @return Array
      */
     public static function obterAtividades($id)
     {
@@ -167,14 +175,14 @@ class Workflow
     }
 
     /**
-     * Retorna dados relevantes referentes uma definição de workflow
-     * Com o nome passado de parâmetro na chamada do método
+     *  Retorna dados relevantes referentes uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
      * 
-     * Os dados são retornados em um array com as seguintes chaves:
-     * 'workflowDefinition' - o campo 'definition' da própria definição de workflow
-     * 'definitionName' - o nome da definição
-     * 'path' - o caminho para onde a imagem da definição foi gerada
-     * 'places' - array com os 'places' da definição
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  - 'workflowDefinition' - o campo 'definition' da própria definição de workflow
+     *  - 'definitionName' - o nome da definição
+     *  - 'path' - o caminho para onde a imagem da definição foi gerada
+     *  - 'places' - array com os 'places' da definição
      * 
      * @param String $definitionName
      * @return Array $workflowData
@@ -205,19 +213,19 @@ class Workflow
     }
 
     /**
-     * Retorna dados relevantes referentes um objeto de workflow
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna dados relevantes referentes um objeto de workflow
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * Os dados são retornados em um array com as seguintes chaves:
-     * 'workflowObject' - O próprio objeto de workflow
-     * 'workflowDefinition' - O objeto da definição referente ao workflowObject
-     * 'workflowsTransitions' - Array de transições com as chaves 'enabled', 'all' e 'currentState'
-     *  essas chaves contém, respectivamente, as transições habilitadas para o objeto, todas as transições
-     *  da definição e o estado atual do objeto
-     * 'formHtml' - HMTL formatado do formulário relacionado ao estado/place atual do objeto
-     * 'title' - Título da definição
-     * 'activity' - Array de registro de atividades para aquele objeto
-     * 'formSubmissions' - Array de submissões de formulários para aquele objeto
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  -- 'workflowObject' - O próprio objeto de workflow;
+     *  -- 'workflowDefinition' - O objeto da definição referente ao workflowObject;
+     *  -- 'workflowsTransitions' - Array de transições com as chaves 'enabled', 'all' e 'currentState';
+     *      --- essas chaves contém, respectivamente, as transições habilitadas para o objeto, todas as transições
+     *      da definição e o estado atual do objeto;
+     *  -- 'formHtml' - HMTL formatado do formulário relacionado ao estado/place atual do objeto;
+     *  -- 'title' - Título da definição;
+     *  -- 'activity' - Array de registro de atividades para aquele objeto;
+     *  -- 'formSubmissions' - Array de submissões de formulários para aquele objeto;
      * 
      * @param Integer $workflowObjectId
      * @return Array $workflowObjectData
