@@ -280,9 +280,19 @@ class Workflow
                 
                 $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
                 $fakeWorkflowObject = new \stdClass();
+                                
                 if (!is_array($to)) {
                     $to = [$to => 1];
+                } else {
+                    if (array_values($to) === $to) {
+                        $toWithWeights = [];
+                        foreach ($to as $place) {
+                            $toWithWeights[$place] = 1;
+                        }
+                        $to = $toWithWeights;
+                    }
                 }
+
                 $fakeWorkflowObject->currentState = $to;
                 $enabledTransitions =  Workflow::obterNomeDasTransitionsHabilitadas($workflowInstance, null, $fakeWorkflowObject);
                 if (empty($enabledTransitions)) {
