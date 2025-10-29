@@ -139,10 +139,30 @@ class Workflow
         $workflowObject = $workflowObject ?? $fakeWorkflowObject;
 
         $enabledTransitions = $workflowInstance->getEnabledTransitions($workflowObject);
-        return array_map(function ($transition) {
+        $transitionNames = array_map(function ($transition) {
             return $transition->getName();
-        }, $enabledTransitions) ?: [];
+        }, $enabledTransitions);
+
+        $workflowDefinition = null;
+        if ($workflowObject instanceof WorkflowObject) {
+            $workflowDefinition = self::obterWorkflowDefinition($workflowObject->workflow_definition_name);
+        } elseif (isset($workflowObject->workflowDefinitionName)) {
+            $workflowDefinition = self::obterWorkflowDefinition($workflowObject->workflowDefinitionName);
+        }
+
+        if (!$workflowDefinition) {
+            return $transitionNames ?: [];
+        }
+
+        $currentPlaces = $workflowObject->state ?? $workflowObject->currentState ?? [];
+
+        $allowedTransitions = array_filter($transitionNames, function ($transitionName) use ($workflowDefinition, $currentPlaces) {
+            return !self::estaTransicaoBloqueada($workflowDefinition->definition, $transitionName, $currentPlaces);
+        });
+
+        return array_values($allowedTransitions) ?: [];
     }
+
 
     /**
      * Retorna o html de um formulário referente ao estado do objeto naquela definição
