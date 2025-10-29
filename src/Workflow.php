@@ -83,7 +83,7 @@ class Workflow
             ->where('subject_id', $id)
             ->get();
 
-            $resultadoFormatado = $atividades->map(function ($atividade) {
+        $resultadoFormatado = $atividades->map(function ($atividade) {
             $workflowObject = Workflow::obterWorkflowObject($atividade->subject_id);
             $workflowDefinition = SELF::obterWorkflowDefinition($workflowObject->workflow_definition_name);  
             $stateData = json_decode($atividade->properties, true);
@@ -269,10 +269,10 @@ class Workflow
                 $transition = $submission['data']['transition'];
                 $to = $workflowDefinition->definition['transitions'][$transition]['tos'];
                 $initial = $workflowDefinition->definition['initial_places'];
-                
+
                 $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
                 $fakeWorkflowObject = new \stdClass();
-                                
+                
                 if (!is_array($to)) {
                     $to = [$to => 1];
                 } else {
@@ -746,6 +746,10 @@ class Workflow
                 return $workflowObject->id;
             } 
 
+            $currentPlaces = $workflowObject->state;
+            if (self::estaTransicaoBloqueada($workflowDefinition->definition, $transition, $currentPlaces)) {
+                return 0; // add mensagem de erro
+            }
             $state = $workflow->apply($workflowObject, $transition);
             
             $places = $state->getPlaces();
@@ -769,6 +773,51 @@ class Workflow
             $workflowObject->save();
         }
         return $workflowObject->id;
+    }
+
+    /**
+     * Verifica se uma transição está bloqueada porque existem múltiplas transições
+     * de estados diferentes que levam ao estado de origem da transição atual,
+     * e nem todas foram completadas ainda.
+     *
+     * @param array $workflowDefinition
+     * @param WorkflowObject $workflowObject
+     * @param string $transition
+     * @param array $currentPlaces
+     * @return bool TRUE se a transição está bloqueada, FALSE caso contrário
+     */
+    public static function estaTransicaoBloqueada($workflowDefinition, $transition, $currentPlaces)
+    {
+        if(count($currentPlaces) == 1){
+            return false;
+        }
+
+        $transitions = $workflowDefinition['transitions'];
+        
+        if (!isset($transitions[$transition])) {
+            return false;
+        }
+
+        $transitionData = $transitions[$transition];
+        $from = $transitionData['from'];
+        
+        $transitionsToFrom = [];
+        foreach ($transitions as $name => $trans) {
+            $transTos = is_array($trans['tos']) ? $trans['tos'] : [$trans['tos']];
+            
+            if (in_array($from, $transTos)) {
+                $transitionsToFrom[] = $trans['from'];
+            }
+        }
+        
+        if (count($transitionsToFrom) > 1) {
+            foreach ($transitionsToFrom as $requiredPlace) {
+                if (!isset($currentPlaces[$requiredPlace])) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
