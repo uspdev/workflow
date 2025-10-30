@@ -13,14 +13,14 @@ return new class extends Migration
     {
         Schema::create('workflow_objects', function (Blueprint $table) { // workflows
             $table->id();
-            $table->json('state')->nullable();  // Current state of the workflow (controlled by application)
-            $table->string('workflow_definition_name'); // Name of the definition
-            $table->foreign('workflow_definition_name')->references('name')->on('workflow_definitions')->onDelete('cascade');   // The name of the object needs to be on the 'workflow_definition' table, at the 'name' column.
+            $table->json('state')->nullable();          // Estado atual do workflows (controlado pela aplicação)
+            $table->string('workflow_definition_name'); // Nome da definição referente ao objeto
+            $table->foreign('workflow_definition_name')->references('name')->on('workflow_definitions')->onDelete('cascade');   // Nome do objeto de workflow deve estar na tabela 'workflow_definitions', na coluna 'name'
 
 
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');   // User whom created the object
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');   // Usuário que criou o objeto
 
-            $table->timestamps();   // Time of creation / update of the objecct
+            $table->timestamps();   // Tempo de criação / atualização do objeto
         });
     }
 

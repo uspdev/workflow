@@ -28,13 +28,13 @@ class WorkflowDefinition extends Model
     ];
 
     /**
-     *  Generates a '.png' image that displays a graph containing 
-     *  places and transitions of the  workflow using the 'Graphp' lib;
+     *  Gera uma imagem '.png' que exibe um grafo contendo os
+     * 'places' e 'transitions' do wokflow utilizando a bilbioteca Graphp;
      * 
-     *  - Places of the definition are represented as circular vertices on the graph;
-     *  - If the place is a initial palce, the color of the circle is turned to blue;
-     *  - The transitions on the workflow are represented by edges on the graph, linking each vertex with one another;
-     *  - Each edge contains the name of the transition it represents.
+     *  - 'Places' da definiçãosão representados por nós (vértices) circulares no grafo;
+     *  - Se o 'place' é um 'initial_place', a cor do círculo se torna azul;
+     *  - As 'transitions' no workflwo são representadas por arestas no grafo, ligando os vértices uns aos outros;
+     *  - Cada aresta contém o nome da 'transition' que representa.
      * 
      *  @return void
      */
@@ -55,6 +55,14 @@ class WorkflowDefinition extends Model
                 $placeName = $place;
             }
 
+            /**
+            * Transforma os metadados dos 'places' da definição em strings, no formato:
+            *   
+            * NomeDoPlace
+            * Metadata:
+            * chave1: valor1,valor2 ...
+            * chave2: valor1,valor2 ...
+            */
             $metadata = '';
             if (isset($place['metadata'])) {
                 $metadataArray = [];
@@ -124,7 +132,7 @@ class WorkflowDefinition extends Model
 
     /**
      *  Salva uma definição no banco de dados
-     * 
+     *
      *  - Verifica a existência do arquivo '.json' da definição;
      *  - Decodifica o json e cria a definition, salvando no banco de dados;
      *  - Caso a  definição já exista no banco de dados, lança uma exception e não salva a definition duplicada;
