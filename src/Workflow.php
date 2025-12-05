@@ -334,7 +334,16 @@ class Workflow
                     return true;
                 }
 
-                return $submission['data']['place'] == $workflowObject->state || $workflowObject->state == $to || $submission['data']['place'] == $initial;
+                // Verifica se a submissão tem um ou mais places a que se refere
+                $submission_place_arr = array_map('trim',explode(',',$submission['data']['place']));
+                if(count($submission_place_arr) >= 2)
+                {
+                    // Caso ao menos um dos places seja igual ao atual, permite ao usuário ver a submissão de formulário
+                    $curr_places = array_keys($workflowObject->state);
+                    $intersection = array_intersect($submission_place_arr,$curr_places);
+                }
+
+                return $submission['data']['place'] == $workflowObject->state || $workflowObject->state == $to || $submission['data']['place'] == $initial || !empty($intersection);
             });
         }        
 
