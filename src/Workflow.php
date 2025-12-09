@@ -776,7 +776,6 @@ class Workflow
             }
 
             $workflowObject = Workflow::criarWorkflow($workflow_definition_name, $states);
-            $places = $state->getPlaces();
 
             $workflowObject->save();
 
