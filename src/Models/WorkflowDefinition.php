@@ -27,7 +27,17 @@ class WorkflowDefinition extends Model
         'definition' => 'array', 
     ];
 
-    
+    /**
+     *  Gera uma imagem '.png' que exibe um grafo contendo os
+     * 'places' e 'transitions' do wokflow utilizando a bilbioteca Graphp;
+     * 
+     *  - 'Places' da definiçãosão representados por nós (vértices) circulares no grafo;
+     *  - Se o 'place' é um 'initial_place', a cor do círculo se torna azul;
+     *  - As 'transitions' no workflwo são representadas por arestas no grafo, ligando os vértices uns aos outros;
+     *  - Cada aresta contém o nome da 'transition' que representa.
+     * 
+     *  @return void
+     */
     public function generatePng()
     {
         $graph = new Graph();
@@ -45,6 +55,14 @@ class WorkflowDefinition extends Model
                 $placeName = $place;
             }
 
+            /**
+            * Transforma os metadados dos 'places' da definição em strings, no formato:
+            *   
+            * NomeDoPlace
+            * Metadata:
+            * chave1: valor1,valor2 ...
+            * chave2: valor1,valor2 ...
+            */
             $metadata = '';
             if (isset($place['metadata'])) {
                 $metadataArray = [];
@@ -88,6 +106,15 @@ class WorkflowDefinition extends Model
         rename($tmpFilePath, $destinationPath);
     }
 
+    /**
+     *  Lista todas as definições de workflow que existam no momento
+     * 
+     *  - Acessa o diretório 'WORKFLOW_STORAGE_PATH' definido no arquivo '.env' (ver 'config/workflow.php' para alterar caminho padrão);
+     *  - Verifica todos os arquivos com a extensão '.json' (formato das definições);
+     *  - Retorna um array contendo somente o nome de cada definição.
+     * 
+     * @return array<array|string>
+     */
     public static function list(){
         $workflowStoragePath = config('workflow.workflow_storage_path');
 
@@ -103,6 +130,17 @@ class WorkflowDefinition extends Model
         }, $files);
     }
 
+    /**
+     *  Salva uma definição no banco de dados
+     *
+     *  - Verifica a existência do arquivo '.json' da definição;
+     *  - Decodifica o json e cria a definition, salvando no banco de dados;
+     *  - Caso a  definição já exista no banco de dados, lança uma exception e não salva a definition duplicada;
+     * 
+     *  @param String $definitionName
+     *  @throws \Exception
+     *  @return String
+     */
     public static function deploy($definitionName)
     {
         $workflowStoragePath = config('workflow.workflow_storage_path');

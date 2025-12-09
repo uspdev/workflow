@@ -26,9 +26,9 @@ class Workflow
 {
 
     /**
-     * Retorna todas as definições de workflow persistidas no banco de dados
+     *  Retorna todas as definições de workflow persistidas no banco de dados
      * 
-     * @return Array
+     *  @return Array
      */
     public static function obterTodosWorkflowDefinitions()
     {
@@ -36,11 +36,11 @@ class Workflow
     }
 
     /**
-     * Retorna uma definição de workflow
-     * Com o nome passado de parâmetro na chamada do método
+     *  Retorna uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
      * 
-     * @param String $definitionName
-     * @return WorkflowDefinition
+     *  @param String $definitionName
+     *  @return WorkflowDefinition
      */
     public static function obterWorkflowDefinition($definitionName)
     {
@@ -48,9 +48,9 @@ class Workflow
     }
 
     /**
-     * Retorna todas os objetos de workflow persistidos no banco de dados
+     *  Retorna todas os objetos de workflow persistidos no banco de dados
      * 
-     * @return Array
+     *  @return Array
      */
     public static function obterTodosWorkflowObjects()
     {
@@ -58,11 +58,11 @@ class Workflow
     }
 
     /**
-     * Retorna um objeto de workflow
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna um objeto de workflow
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * @param Integer $id
-     * @return WorkflowObject
+     *  @param Integer $id
+     *  @return WorkflowObject
      */
     public static function obterWorkflowObject($id)
     {
@@ -70,11 +70,19 @@ class Workflow
     }
 
     /**
-     * Retorna os registros de atividade para um objeto
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna os registros de atividade para um objeto
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * @param Integer $id
-     * @return Array
+     *  - Encontra a atividade relacionada ao workflow object com o id citado acima;
+     *  - Encontra a workflow definition relacionada ao objeto;
+     *  - Captura as propriedades da atividade;
+     *  - Verifica se o 'state' da atividade está ativo no 'place' atual do workflow object
+     *  - Encontra (Se possível) o causador da atividade
+     * 
+     *  - Formata toda a resposta e retona um array com os dados da atividade;
+     * 
+     *  @param Integer $id
+     *  @return Array
      */
     public static function obterAtividades($id)
     {
@@ -165,7 +173,8 @@ class Workflow
 
 
     /**
-     * Retorna o html de um formulário referente ao estado do objeto naquela definição
+     * Retorna o html de um formulário referente ao estado atual do objeto, se existir
+     * Caso não tenha, retorna vazio ('')
      * 
      * @param WorkflowObject $workflowObject
      * @param WorkflowDefinition $workflowDefinition
@@ -187,14 +196,15 @@ class Workflow
     }
 
     /**
-     * Retorna dados relevantes referentes uma definição de workflow
-     * Com o nome passado de parâmetro na chamada do método
+     *  Retorna dados relevantes referentes uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
      * 
-     * Os dados são retornados em um array com as seguintes chaves:
-     * 'workflowDefinition' - o campo 'definition' da própria definição de workflow
-     * 'definitionName' - o nome da definição
-     * 'path' - o caminho para onde a imagem da definição foi gerada
-     * 'places' - array com os 'places' da definição
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  - 'workflowDefinition' -> Instância de 'WorkflowDefinition', de nome '$definitionName'
+     *  - 'definitionName' -> Nome da definição
+     *  - 'path' - Caminho para onde o grafo da definição foi salvo
+     *  - 'formattedJson' -> Definição formatada em .json
+     *  - 'roles' - 'roles' exigidas pela definição
      * 
      * @param String $definitionName
      * @return Array $workflowData
@@ -210,9 +220,14 @@ class Workflow
         
         $roles = [];
         foreach($workflowDefinition->definition['places'] as $place){
+
+            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
             $keyRole = key($place['role']);
+            // keyRole == Role_keyN
             $role = $place['role'][$keyRole];
+            // role == roleN
             $roles[$role] = $keyRole;
+            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
         }
 
         $workflowData['workflowDefinition'] = $workflowDefinition;
@@ -225,19 +240,19 @@ class Workflow
     }
 
     /**
-     * Retorna dados relevantes referentes um objeto de workflow
-     * Com o id correspondente ao passado de parâmetro na chamada do método
+     *  Retorna dados relevantes referentes um objeto de workflow
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
-     * Os dados são retornados em um array com as seguintes chaves:
-     * 'workflowObject' - O próprio objeto de workflow
-     * 'workflowDefinition' - O objeto da definição referente ao workflowObject
-     * 'workflowsTransitions' - Array de transições com as chaves 'enabled', 'all' e 'currentState'
-     *  essas chaves contém, respectivamente, as transições habilitadas para o objeto, todas as transições
-     *  da definição e o estado atual do objeto
-     * 'formHtml' - HMTL formatado do formulário relacionado ao estado/place atual do objeto
-     * 'title' - Título da definição
-     * 'activity' - Array de registro de atividades para aquele objeto
-     * 'formSubmissions' - Array de submissões de formulários para aquele objeto
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  -- 'workflowObject' - Instância de 'WorkflowObject';
+     *  -- 'workflowDefinition' - OInstância da 'WorkflowDefinition' atrelada ao WorkflowObject;
+     *  -- 'workflowsTransitions' - Array de transições com as chaves 'enabled', 'all' e 'currentState';
+     *      --- essas chaves contém, respectivamente, as transições habilitadas para o objeto, todas as          transições e o estado ('place') atual
+     * 
+     *  -- 'formHtml' - HMTL formatado do formulário relacionado ao estado/place atual do objeto;
+     *  -- 'title' - Título da definição;
+     *  -- 'activity' - Array de registro de atividades para aquele objeto;
+     *  -- 'formSubmissions' - Array de submissões de formulários para aquele objeto;
      * 
      * @param Integer $workflowObjectId
      * @return Array $workflowObjectData
@@ -293,6 +308,14 @@ class Workflow
                 $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
                 $fakeWorkflowObject = new \stdClass();
                 
+                /**
+                 * Caso o destino da transition não esteja no formato [chave => valor],
+                 * a formata desta maneira.
+                 * 
+                 * Ainda, caso o destino da transition seja um vetor mas, da forma [nomePlace => nomePlace],
+                 * atribui ao vetor '$toWithWeights' os 'nomePlace' e o valor 1, de tal forma que:
+                 * 'toWithWeights' == [nomePlace1 => 1, nomePlace2 => 1, ...].
+                 */
                 if (!is_array($to)) {
                     $to = [$to => 1];
                 } else {
@@ -311,7 +334,16 @@ class Workflow
                     return true;
                 }
 
-                return $submission['data']['place'] == $workflowObject->state || $workflowObject->state == $to || $submission['data']['place'] == $initial;
+                // Verifica se a submissão tem um ou mais places a que se refere
+                $submission_place_arr = array_map('trim',explode(',',$submission['data']['place']));
+                if(count($submission_place_arr) >= 2)
+                {
+                    // Caso ao menos um dos places seja igual ao atual, permite ao usuário ver a submissão de formulário
+                    $curr_places = array_keys($workflowObject->state);
+                    $intersection = array_intersect($submission_place_arr,$curr_places);
+                }
+
+                return $submission['data']['place'] == $workflowObject->state || $workflowObject->state == $to || $submission['data']['place'] == $initial || !empty($intersection);
             });
         }        
 
@@ -348,8 +380,8 @@ class Workflow
     }
 
     /**
-     * Atualiza uma WorkflowDefinition com os dados passados como parâmetros pelo $request
-     * Valida todos os dados antes de fazer a atualização da definição
+     *  Atualiza uma WorkflowDefinition com os dados passados como parâmetros pelo $request
+     *  Valida todos os dados antes de fazer a atualização da definição
      * 
      * @param String $request->name
      * @param String $request->description
@@ -434,7 +466,7 @@ class Workflow
         WorkflowDefinition::create([
             'name' => $request->name,
             'description' => $request->description,
-            'definition' => json_decode($request->definition),
+            'definition' => $def,
         ]);
     }
 
@@ -535,6 +567,18 @@ class Workflow
 
             $workflowDefinition = new Definition(
                 $places,
+                // $name = array_key($transitions)
+                // $transition = valor refernciado pelas chaves
+                /*
+                   Logo, se $transition = [
+                   'aprovado' => ['from' => 'inicio', 'tos' => '[meio','fim']]
+                    ...
+                   ]
+
+                   Na primeira iteração - $name == 'aprovador'; $transition == ['from' => 'inicio', 'tos' => '[meio','fim']]
+
+                   Faz isso para todos os elementos do vetor
+                */
                 array_map(function ($name, $transition) {
                     $tos = is_array($transition['tos']) ? $transition['tos'] : [$transition['tos']];
                     return new Transition($name, $transition['from'], $tos);
@@ -546,7 +590,7 @@ class Workflow
     }
 
     /**
-     * Exclui um WorkflowObject com o Id passado
+     * Exclui um WorkflowObject com o Id referenciado
      * 
      * @param Integer $workflowId
      */
@@ -557,7 +601,7 @@ class Workflow
     }
 
     /**
-     * Exclui uma WorkflowDefinition com o nome passado
+     * Exclui uma WorkflowDefinition com o nome referenciado
      * 
      * @param String $definitionName
      */
@@ -568,7 +612,7 @@ class Workflow
     }
 
     /**
-     * Lista todos os WorkflowObjects relacionados à WorkflowDefinition com o nome passado
+     * Lista todos os WorkflowObjects relacionados à WorkflowDefinition com o nome referenciado
      * 
      * @param String $definitionName
      * @return Array $workflowsDisplay
@@ -706,7 +750,7 @@ class Workflow
 
 
     /**
-     * Verifica se um WorkflowObject passado por seu id pode realizar certa
+     * Verifica se um WorkflowObject referenciado por seu id pode realizar certa
      * transição também passada por parâmetro. Caso possa, o método aplica essa
      * tal transição e salva o objeto com seu novo estado.
      * 
@@ -718,6 +762,7 @@ class Workflow
     {
         $workflowDefinition = WorkflowDefinition::where('name', $workflowDefinitionName)->firstOrFail();
 
+        // Atua caso o workflow esteja em seu estado inicial (Faz a primeira transition)
         if ($id == 0) {
             DB::beginTransaction();
             $workflow_definition_name = ['workflow_definition_name' => $workflowDefinitionName];
@@ -731,6 +776,7 @@ class Workflow
             }
 
             $workflowObject = Workflow::criarWorkflow($workflow_definition_name, $states);
+            $places = $state->getPlaces();
 
             $workflowObject->save();
 
@@ -785,10 +831,6 @@ class Workflow
             }
             
             $workflowObject->state = $places;
-            
-
-            $workflowObject->save();
-
             
             $workflowObject->save();
         }
