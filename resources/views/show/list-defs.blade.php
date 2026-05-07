@@ -27,7 +27,7 @@
           @foreach ($workflowDefinitions as $workflowDefinition)
             <tr>
               <td>
-                {{ $workflowDefinition->name }}
+                <a href="{{ route('workflows.showDefinition',$workflowDefinition->name) }}">{{ $workflowDefinition->name }}</a>
               </td>
               <td>
                 {{ $workflowDefinition->description }}
