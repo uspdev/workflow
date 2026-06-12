@@ -59,7 +59,7 @@ class WorkflowController extends Controller
     {
         $workflow = Workflow::obterWorkflowDefinition($definitionName);
 
-        return view('edit', compact('workflow'));
+        return view('uspdev-workflow::definition.edit', compact('workflow'));
     }
 
     public function updateDefinition(Request $request)
@@ -74,7 +74,7 @@ class WorkflowController extends Controller
         $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
         \UspTheme::activeUrl('viewcreateobject');
 
-        return view('createObject', compact('workflowDefinitions'));
+        return view('uspdev-workflow::object.createObject', compact('workflowDefinitions'));
     }
 
     public function createObject($definitionName)
@@ -83,7 +83,7 @@ class WorkflowController extends Controller
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
         $workflowObjectData['orientacaoUsuario'] = [];
 
-        return view('show.showObject', compact('workflowObjectData'));
+        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
     public function showUserObjects()
@@ -94,7 +94,7 @@ class WorkflowController extends Controller
 
         $workflowsDisplay = Workflow::listarWorkflowsdoUser($userCodpes);
 
-        return view('userObjects', compact('workflowsDisplay'));
+        return view('uspdev-workflow::object.userObjects', compact('workflowsDisplay'));
     }
 
     public function showForm($id, $transition)
