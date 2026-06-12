@@ -10,14 +10,9 @@ use App\Http\Controllers\Controller;
 
 class WorkflowController extends Controller
 {
-    public function home()
-    {
-        return view('home');
-    }
-
     public function createDefinition()
     {
-        return view('createDefinition');
+        return view('uspdev-workflow::definition.createDefinition');
     }
 
     public function storeDefinition(Request $request)
@@ -115,7 +110,7 @@ class WorkflowController extends Controller
         $workflowObjectData = Workflow::obterDadosDoObjeto($id);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
 
-        return view('show.showObject', compact('workflowObjectData'));
+        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
     private function prepararDadosDaTelaDoObjeto(array $workflowObjectData): array
@@ -404,7 +399,7 @@ class WorkflowController extends Controller
 
         $workflowsDisplay = Workflow::listarWorkflowsObjectsRelacionados();
 
-        return view('userRelatedObjects', compact('workflowsDisplay'));
+        return view('uspdev-workflow::object.userRelatedObjects', compact('workflowsDisplay'));
 
     }
 }
