@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace Uspdev\Workflow\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Uspdev\Workflow\Models\WorkflowDefinition;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Uspdev\Workflow\Workflow;
+use App\Http\Controllers\Controller;
 
 class WorkflowController extends Controller
 {
