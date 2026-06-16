@@ -3,6 +3,7 @@ namespace Uspdev\Workflow;
 
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
+use Uspdev\Workflow\Providers\EventServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
 {
@@ -31,6 +32,8 @@ class WorkflowServiceProvider extends ServiceProvider
         $this->commands([
             WorkflowSync::class,
         ]);
+
+        $this->app->register(EventServiceProvider::class);
     }
 
     /**

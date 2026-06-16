@@ -6,4 +6,6 @@ return [
     'storagePath' => env('WORKFLOW_STORAGE_PATH', storage_path('app/workflowsJson')),
     
     'prefix' => 'uspdev-workflow',
+
+    'adminGate' => 'admin',
 ];
