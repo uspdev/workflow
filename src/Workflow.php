@@ -892,7 +892,6 @@ class Workflow
             $workflowDefinitionName = $request->input('definition_name');
 
             $workflow_definition_name = ['workflow_definition_name' => $workflowDefinitionName];
-
             $workflowDefinition = WorkflowDefinition::where('name', $workflowDefinitionName)->firstOrFail();
 
             $states = [];
