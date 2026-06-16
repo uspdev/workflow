@@ -3,13 +3,19 @@
 namespace Uspdev\Workflow\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Uspdev\Workflow\Models\WorkflowDefinition;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Uspdev\Workflow\Workflow;
-use App\Http\Controllers\Controller;
 
 class WorkflowController extends Controller
 {
+    public function home()
+    {
+        return view('home');
+    }
+
     public function createDefinition()
     {
         return view('uspdev-workflow::definition.createDefinition');
@@ -78,7 +84,7 @@ class WorkflowController extends Controller
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
         $workflowObjectData['orientacaoUsuario'] = [];
 
-        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
+        return view('show.showObject', compact('workflowObjectData'));
     }
 
     public function showUserObjects()
@@ -395,9 +401,12 @@ class WorkflowController extends Controller
 
     public function atendimentos()
     {
-        \UspTheme::activeUrl('atendimentos');
+        \UspTheme::activeUrl('equivalencias/atendimentos');
 
         $workflowsDisplay = Workflow::listarWorkflowsObjectsRelacionados();
+        $workflowsDisplay['workflows'] = collect($workflowsDisplay['workflows'] ?? [])
+            ->unique('id')
+            ->values();
 
         return view('uspdev-workflow::object.userRelatedObjects', compact('workflowsDisplay'));
 
