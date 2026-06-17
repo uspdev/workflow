@@ -463,6 +463,15 @@ class WorkflowController extends Controller
         return self::showUserObjects();
     }
 
+    /**
+     * Aplica a transition do place atual do WorkflowObject, após o usuário realizar a submissão do 
+     * formulário à ela atrelado ou quando algum determinado evento ocorre (geralmente atrelado à
+     * submissão de 1 ou mais formulários para um mesmo place). O objeto é referenciado pelo seu id.
+     * Ao fim, redireciona para a a exibição do objeto no seu novo estado (pós aplicação da transition)
+     * @param Request $request
+     * @param mixed $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function applyTransition(Request $request, $id)
     {
         $workflowObjectId = Workflow::aplicarTransition($id, $request->input('transition'), $request->input('workflowDefinitionName'));
@@ -474,6 +483,12 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
     }
 
+    /**
+     * Lida com a submissão de formulários, através da biblioteca Uspdev\Forms, e exibe o objeto
+     * após a submissão.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function submitForm(Request $request)
     {
 
@@ -494,6 +509,12 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
     }
 
+    /**
+     * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
+     * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
+     * objeto), exibindo-os em uma tela para o usuário.
+     * @return \Illuminate\Contracts\View\View
+     */
     public function atendimentos()
     {
         \UspTheme::activeUrl('equivalencias/atendimentos');
