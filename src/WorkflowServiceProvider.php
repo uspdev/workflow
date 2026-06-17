@@ -14,6 +14,8 @@ class WorkflowServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->app->register(EventServiceProvider::class);
+        
         // Publish config file
         $this->publishes([
             __DIR__.'/../config/workflow.php' => config_path('uspdev-workflow.php'),
@@ -33,7 +35,6 @@ class WorkflowServiceProvider extends ServiceProvider
             WorkflowSync::class,
         ]);
 
-        $this->app->register(EventServiceProvider::class);
     }
 
     /**
