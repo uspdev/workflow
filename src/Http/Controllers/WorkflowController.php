@@ -11,16 +11,22 @@ use Uspdev\Workflow\Workflow;
 
 class WorkflowController extends Controller
 {
-    public function home()
-    {
-        return view('home');
-    }
-
+    /**
+     * Redireciona à tela de criação de definições de workflow
+     * @return \Illuminate\Contracts\View\View
+     */
     public function createDefinition()
     {
         return view('uspdev-workflow::definition.createDefinition');
     }
 
+    /**
+     * Armazena uma nova definição de workflow no banco de dados, com os dados passados 
+     * em '$request' listando todas
+     * as existentes no final do processo.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function storeDefinition(Request $request)
     {
         Workflow::criarWorkflowDefinition($request);
@@ -28,6 +34,10 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition criada com sucesso.');
     }
 
+    /**
+     * Lista todas as definições persistidas no banco de dados
+     * @return \Illuminate\Contracts\View\View
+     */
     public function listDefinitions()
     {
         $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
@@ -35,6 +45,11 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::show.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
     }
 
+    /**
+     * Exibe os detalhes de uma definição de workflow
+     * @param string $definitionName
+     * @return \Illuminate\Contracts\View\View
+     */
     public function showDefinition($definitionName)
     {
         $workflowDefinitionData = Workflow::obterDadosDaDefinicao($definitionName);
@@ -42,6 +57,12 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::show.show-def', compact('workflowDefinitionData'));
     }
 
+    /**
+     * Define o relacionamento entre um usuário e um place específico do workflow,
+     * baseados nos dados da requisição '$request'.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function setUser(Request $request)
     {
         Workflow::definirUsuarios($request);
@@ -49,6 +70,11 @@ class WorkflowController extends Controller
         return back();
     }
 
+    /**
+     * Remove a definição de workflow, com o nome referenciado como parâmetro, do banco de dados.
+     * @param mixed $definitionName
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroyDefinition($definitionName)
     {
         Workflow::deletarDefinicaodeWorkflow($definitionName);
@@ -56,6 +82,11 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition apagada com sucesso.');
     }
 
+    /**
+     * Exibe o formulário para edição da definição com o nome especificado como parâmetro.
+     * @param mixed $definitionName
+     * @return \Illuminate\Contracts\View\View
+     */
     public function editDefinition($definitionName)
     {
         $workflow = Workflow::obterWorkflowDefinition($definitionName);
@@ -63,6 +94,12 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::definition.edit', compact('workflow'));
     }
 
+    /**
+     * Atualiza uma definição já existente, após as alterações realizadas nela, através de 
+     * '$request', persistindo as mudanças no banco de dados.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function updateDefinition(Request $request)
     {
         Workflow::atualizarWorkflow($request);
