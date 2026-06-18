@@ -3,6 +3,7 @@ namespace Uspdev\Workflow;
 
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
+use Uspdev\Workflow\Providers\EventServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
 {
@@ -13,6 +14,8 @@ class WorkflowServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->app->register(EventServiceProvider::class);
+        
         // Publish config file
         $this->publishes([
             __DIR__.'/../config/workflow.php' => config_path('uspdev-workflow.php'),
@@ -31,6 +34,7 @@ class WorkflowServiceProvider extends ServiceProvider
         $this->commands([
             WorkflowSync::class,
         ]);
+
     }
 
     /**

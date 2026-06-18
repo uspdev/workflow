@@ -3,7 +3,6 @@
 namespace Uspdev\Workflow\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Uspdev\Workflow\Models\WorkflowDefinition;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -11,16 +10,22 @@ use Uspdev\Workflow\Workflow;
 
 class WorkflowController extends Controller
 {
-    public function home()
-    {
-        return view('home');
-    }
-
+    /**
+     * Redireciona à tela de criação de definições de workflow
+     * @return \Illuminate\Contracts\View\View
+     */
     public function createDefinition()
     {
         return view('uspdev-workflow::definition.createDefinition');
     }
 
+    /**
+     * Armazena uma nova definição de workflow no banco de dados, com os dados passados 
+     * em '$request' listando todas
+     * as existentes no final do processo.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function storeDefinition(Request $request)
     {
         Workflow::criarWorkflowDefinition($request);
@@ -28,6 +33,10 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition criada com sucesso.');
     }
 
+    /**
+     * Lista todas as definições persistidas no banco de dados
+     * @return \Illuminate\Contracts\View\View
+     */
     public function listDefinitions()
     {
         $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
@@ -35,6 +44,11 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::show.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
     }
 
+    /**
+     * Exibe os detalhes de uma definição de workflow
+     * @param string $definitionName
+     * @return \Illuminate\Contracts\View\View
+     */
     public function showDefinition($definitionName)
     {
         $workflowDefinitionData = Workflow::obterDadosDaDefinicao($definitionName);
@@ -42,6 +56,12 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::show.show-def', compact('workflowDefinitionData'));
     }
 
+    /**
+     * Define o relacionamento entre um usuário e um place específico do workflow,
+     * baseados nos dados da requisição '$request'.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function setUser(Request $request)
     {
         Workflow::definirUsuarios($request);
@@ -49,6 +69,11 @@ class WorkflowController extends Controller
         return back();
     }
 
+    /**
+     * Remove a definição de workflow, com o nome referenciado como parâmetro, do banco de dados.
+     * @param mixed $definitionName
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroyDefinition($definitionName)
     {
         Workflow::deletarDefinicaodeWorkflow($definitionName);
@@ -56,6 +81,11 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition apagada com sucesso.');
     }
 
+    /**
+     * Exibe o formulário para edição da definição com o nome especificado como parâmetro.
+     * @param mixed $definitionName
+     * @return \Illuminate\Contracts\View\View
+     */
     public function editDefinition($definitionName)
     {
         $workflow = Workflow::obterWorkflowDefinition($definitionName);
@@ -63,6 +93,12 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::definition.edit', compact('workflow'));
     }
 
+    /**
+     * Atualiza uma definição já existente, após as alterações realizadas nela, através de 
+     * '$request', persistindo as mudanças no banco de dados.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function updateDefinition(Request $request)
     {
         Workflow::atualizarWorkflow($request);
@@ -70,6 +106,10 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.showDefinition', ['definition' => $request->name]);
     }
 
+    /**
+     * Exibe as definições de workflow para que possa criar objetos das que desejar.
+     * @return \Illuminate\Contracts\View\View
+     */
     public function viewCreateObject()
     {
         $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
@@ -78,15 +118,26 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::object.createObject', compact('workflowDefinitions'));
     }
 
+    /**
+     * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
+     * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
+     * @param mixed $definitionName
+     * @return \Illuminate\Contracts\View\View
+     */
     public function createObject($definitionName)
     {
         $workflowObjectData = Workflow::criarWorkflowObject($definitionName);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
         $workflowObjectData['orientacaoUsuario'] = [];
 
-        return view('show.showObject', compact('workflowObjectData'));
+        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
+    /**
+     * Exibe os objetos de workflow atrelados ao usuário, ou seja, os objetos criados pelo usuário
+     * ou objetos nos quais ele têm algum atendimento à fazer.
+     * @return \Illuminate\Contracts\View\View
+     */
     public function showUserObjects()
     {
         \UspTheme::activeUrl('showuserobjects');
@@ -98,6 +149,13 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::object.userObjects', compact('workflowsDisplay'));
     }
 
+    /**
+     * Exibe o formuláriode uma transition específica do workflow.
+     * Para tal, busca através do id do objeto e do nome da transition para realizar a exibição.
+     * @param mixed $id
+     * @param mixed $transition
+     * @return \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
+     */
     public function showForm($id, $transition)
     {
         $workflowObjectData = Workflow::obterDadosDoObjeto($id);
@@ -111,6 +169,11 @@ class WorkflowController extends Controller
         return view('form', compact('workflowObjectData', 'selectedForm', 'transition'));
     }
 
+    /**
+     * Exibe um objeto de workflow, buscado através de seu id.
+     * @param mixed $id
+     * @return \Illuminate\Contracts\View\View
+     */
     public function showObject($id)
     {
         $workflowObjectData = Workflow::obterDadosDoObjeto($id);
@@ -119,6 +182,12 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
+    /**
+     * Prepara os dados do objeto para serem exibidos, construindo as orientações para o usuário, 
+     * transições visiveis atualmente, o histórico dos estados, e outras informações úteis ao usuário.
+     * @param array $workflowObjectData
+     * @return array
+     */
     private function prepararDadosDaTelaDoObjeto(array $workflowObjectData): array
     {
         $workflowObjectData['orientacaoUsuario'] = $this->construirOrientacaoUsuario($workflowObjectData);
@@ -129,8 +198,13 @@ class WorkflowController extends Controller
         return $workflowObjectData;
     }
 
-    // Mapeia [chaveEstado => [nomeTransicao => dadosTransicao]] para cada estado atual,
-    // filtrando apenas as transições que o usuário tem papel para executar.
+    /**
+     * Monta as transições visíveis ao usuário, ou seja, verifica se para aquele place atual o usuário
+     * tem um papel à desempenhar, ou seja, está apto a visualizar as transitions. O admin pode 
+     * visualizar todas as transitions.
+     * @param array $workflowObjectData
+     * @return array<array>
+     */
     private function construirTransicoesVisiveis(array $workflowObjectData): array
     {
         $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
@@ -160,8 +234,13 @@ class WorkflowController extends Controller
         return $resultado;
     }
 
-    // Prepara dados de cada transição para a seção de administrador,
-    // incluindo se ela tem formulário, se o usuário tem permissão e se está habilitada.
+    /**
+     * Constrói a estrutura para exibir a transition com informações úteis ao admin, contendo detalhes 
+     * sobre a transition, como se esta tem formulário, está habilitada, se o usuário tem permissão 
+     * para executar a transition, entre outros,retornando o resultado em um array.
+     * @param array $workflowObjectData
+     * @return array{estaHabilitada: bool, label: mixed, temFormulario: bool, temPermissao: bool[]}
+     */
     private function construirTransicoesAdmin(array $workflowObjectData): array
     {
         $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
@@ -199,10 +278,13 @@ class WorkflowController extends Controller
         return $resultado;
     }
 
-    // Método para construir as orientações ao usuário com base
-    // nos estados atuais e transições disponíveis
-    // Ele analisa os estados atuais do objeto, verifica as transições disponíveis para o usuário
-    // e retorna uma estrutura de dados que pode ser usada na view para exibir mensagens e ações relevantes
+    /**
+     * Monta orientações ao usuário, baseado no place atual em que objeto se encontra e nas transitions
+     * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
+     * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
+     * @param array $workflowObjectData
+     * @return array{acoesDisponiveis: array, estadosAtuais: mixed, mensagem: string, titulo: string, variante: string}
+     */
     private function construirOrientacaoUsuario(array $workflowObjectData): array
     {
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
@@ -257,7 +339,13 @@ class WorkflowController extends Controller
         ];
     }
 
-    // Método para obter as transições visíveis para o usuário com base nos estados atuais do objeto e nas regras de acesso
+    /**
+     * Recupera as transitions as quais o usuário tem possibilidade de enxergar, baseado nos papéis
+     * do place atual que o objeto se encontra, referenciado em '$workflowObjectData', e nas transitions 
+     * habilitadas para o objeto. Admins podem visualizar todas as transitions habilitadas.
+     * @param array $workflowObjectData
+     * @return array
+     */
     private function obterTransicoesVisiveisParaUsuario(array $workflowObjectData): array
     {
         $transicoesVisiveis = [];
@@ -297,7 +385,14 @@ class WorkflowController extends Controller
         return $transicoesVisiveis;
     }
 
-    // Método para construir o histórico de estados do usuário com base nas submissões de formulários relacionadas ao objeto
+    /**
+     * Constrói o histórico de estados do objeto, ou seja, quais foram as transitions executadas (ou 
+     * seja, quais foram as submissões de formulário realizadas) e ,portanto, qual place fora percorrido 
+     * ou não, quando houve retorno para o usuário, entre outros detalhes, gerando assim uma descrição 
+     * legível dos acontecimentos do workflow para o usuário
+     * @param array $workflowObjectData
+     * @return array
+     */
     private function construirHistoricoEstados(array $workflowObjectData): array
     {
         $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
@@ -368,6 +463,15 @@ class WorkflowController extends Controller
         return self::showUserObjects();
     }
 
+    /**
+     * Aplica a transition do place atual do WorkflowObject, após o usuário realizar a submissão do 
+     * formulário à ela atrelado ou quando algum determinado evento ocorre (geralmente atrelado à
+     * submissão de 1 ou mais formulários para um mesmo place). O objeto é referenciado pelo seu id.
+     * Ao fim, redireciona para a a exibição do objeto no seu novo estado (pós aplicação da transition)
+     * @param Request $request
+     * @param mixed $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function applyTransition(Request $request, $id)
     {
         $workflowObjectId = Workflow::aplicarTransition($id, $request->input('transition'), $request->input('workflowDefinitionName'));
@@ -379,6 +483,12 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
     }
 
+    /**
+     * Lida com a submissão de formulários, através da biblioteca Uspdev\Forms, e exibe o objeto
+     * após a submissão.
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function submitForm(Request $request)
     {
 
@@ -399,6 +509,12 @@ class WorkflowController extends Controller
         return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
     }
 
+    /**
+     * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
+     * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
+     * objeto), exibindo-os em uma tela para o usuário.
+     * @return \Illuminate\Contracts\View\View
+     */
     public function atendimentos()
     {
         \UspTheme::activeUrl('equivalencias/atendimentos');
