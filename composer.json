@@ -30,27 +30,11 @@
         "graphp/graph": "^1@dev",
         "graphp/graphviz": "1.x-dev"
     },
-    "repositories":
-    [
-        {
-            "type": "path",
-            "url": "../forms",
-            "options":{"symlink": true}
-        }
-    ],
     "extra": {
         "laravel": {
             "providers": [
                 "Uspdev\\Workflow\\WorkflowServiceProvider"
             ]
         }
-    },
-    "repositories":
-    [
-        {
-            "type": "path",
-            "url": "../forms",
-            "options": {"symlink": true}
-        }
-    ]
+    }
 }
