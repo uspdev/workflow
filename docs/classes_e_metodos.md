@@ -4,6 +4,10 @@
 
 ### Métodos
 
+#### $workflow::createObject(String $workflowName, Model $model): WorkflowObject
+
+* Vincular um objeto (ex. Equivalencia) a um workflow específico, iniciando seu ciclo de vida em um estado predefinido.
+
 #### Workflow::load(string $name, ?int version = null): WorkflowDefinition
 
 * Se não informado, retorna a versão 'publicado'
@@ -24,15 +28,15 @@
 
 * retorna dados de uma transition
 
-#### $workflow->createObject(Model $model): WorkflowObject
-
-* Vincular um objeto (ex. Equivalencia) a um workflow específico, iniciando seu ciclo de vida em um estado predefinido.
-
 ---
 
 ## class WorkflowObject
 
 ### Métodos
+
+#### WorkflowObject::from(Model $model): ?WorkflowObject
+
+* retorna a instância de WorkflowObject associada ao objeto informado ou NULL.
 
 #### $object->currentPlaces(): array
 
@@ -51,10 +55,14 @@
 
 * lista transições possíveis
 
-#### $object->workflowState()
+#### $object->workflowState(): array
 
 * retorna tudo que UI precisa, place, actors, actions, forms
 * possui descrição complementar
+
+#### $object->model(): Model
+
+* Retorna a instância do Model vinculada a este WorkflowObject.
 
 #### $object->history(): Collection WorkflowHistory
 

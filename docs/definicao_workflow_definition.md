@@ -63,7 +63,7 @@ Lista de roles disponíveis no workflow.
 [{attribute, field}]
 ```
 
-* Ao preencher o `form`, o campo em `field` é atribuído a `attribute` em `workflow_object->data`.
+* Ao preencher o `form`, o campo em `field` é atribuído a `attribute` em `workflow_object->variables`.
 * Nesse caso é obrigatório o form possuir o campo `field`.
 
 **form** (default = transition->name)

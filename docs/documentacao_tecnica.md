@@ -22,6 +22,19 @@ Depende da biblioteca forms caso seja utilizado nas `transitions`.
 
 ## Casos de uso
 
+Sistema deve possuir um objeto que vai ser tramitado no workflow. Exemplo im objeto ($equivalencia) classe Equivalencia.
+
+Para iniciar o processo associando um objeto de Equivalencia ao Workflow use:
+
+```php
+    $wfObject = WorkflowDefinition::createObject('equivalencia', $equivalencia);
+```
+
+Depois para ver o que consegue fazer:
+
+    $state = $wfObject->workflowState();
+
+
 # Regras de Negócio Cruciais (RNs)
 
 Este documento é fundamental para definir as validações que o motor de workflow deve seguir.
