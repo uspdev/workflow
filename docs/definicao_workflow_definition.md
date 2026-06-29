@@ -1,4 +1,6 @@
-# Definição do campo `definition` da tabela `workflow_definitions`
+# Definição da estrutura de um workflow 
+
+Armazenado no campo WorkflowDefinition->definition
 
 ## Descrição
 
@@ -28,7 +30,6 @@ Lista de roles disponíveis no workflow.
 * Roles com source são dinâmicas e resolvidas a partir dos dados da instância do workflow.
 
 ---
-
 ## places
 
 ### Campos
@@ -96,8 +97,24 @@ Campos:
 * adiciona emails a serem notificados
 
 ---
+### DTOs - Data transfer object 
 
-# Exemplo de `definition`
+Todos DTOs devem possuir fromArray, toArray e validate.
+
+FromArray deve implementar validação.
+
+- WorkflowDefinitionData ✅
+    - RoleDefinition
+    - PlaceDefinition
+    - TransitionDefinition ✅
+        - métodos: 
+            - resolveNotificationDestinations
+        - DTO:
+            - NotificationDefinition
+            - BindingDefinition
+
+---
+### Exemplo de `definition`
 
 ```json
 {

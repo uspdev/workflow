@@ -1,128 +1,20 @@
 # Documentação técnica, definições e modelo do Workflow
 
-## Documentos
-
-* [Dicionário de dados](dicionario_de_dados.md)
-* [Classes e métodos](classes_e_metodos.md)
-* [Especificação da coluna definition de workfowDefinition](definicao_workflow_definition.md)
-
-
-
 ## Contexto
 
-Biblioteca do ecossistema USPDEV/Laravel
+Biblioteca integrante do ecossistema USPDEV/Laravel que implementa um motor de estados inspirado no componente symfony/workflow, adicionando camadas adicionais de abstração, configuração e integração com o ambiente Laravel.
 
-Estende a biblioteca symfony/workflow e adiciona outros contextos
+A biblioteca permite associar entidades do sistema (models) a workflows previamente definidos, possibilitando a modelagem e execução de fluxos de estado (state machines) de forma padronizada e reutilizável dentro das aplicações.
 
-Permite que um objeto do sitema seja associado a um workflow predefinido.
+A biblioteca depende do pacote uspdev/forms, que é responsável pela definição e manipulação de formulários dinâmicos associados às transições de estado, permitindo a captura estruturada de dados durante as mudanças de estado.
 
-Possui interface para editar um workflow existente
+Além da execução de workflows, fornece uma interface administrativa para criação, edição e manutenção de definições de workflow, facilitando a gestão visual e operacional dos fluxos.
 
-Depende da biblioteca forms caso seja utilizado nas `transitions`.
+## Documentos
 
-## Casos de uso
-
-Sistema deve possuir um objeto que vai ser tramitado no workflow. Exemplo de objeto ($equivalencia) classe Equivalencia.
-
-Para iniciar o processo associando um objeto de Equivalencia ao Workflow use:
-
-```php
-$equivalencia = Equivalencia::load(1);
-$wfObject = Workflow::start('equivalencia', $equivalencia);
-```
-
-Depois para ver o que consegue fazer:
-
-    $state = $wfObject->workflowState();
+* [Dicionário de dados e modelagem](dicionario_de_dados.md)
+* [Classes e métodos](classes_e_metodos.md)
+* [Casos de uso](casos_de_uso.md)
+* [Definição de workflow](definicao_workflow_definition.md)
 
 
-Para aplicar uma transição, sendo $data os dados do formulário:
-
-    $wfObject->apply('nome-transicao', $data);
-
-
-
-# Regras de Negócio Cruciais (RNs)
-
-Este documento é fundamental para definir as validações que o motor de workflow deve seguir.
-
----
-
-# Esquema do JSON de Definição (Schema)
-
-Como a lógica do fluxo (estados e transições) fica armazenada em uma coluna JSON chamada `definition`, um documento técnico detalhando a estrutura desse JSON é vital.
-
-### O que incluir
-
-* A hierarquia das chaves `places`, `transitions` e o `initial_place`.
-* Isso é essencial para que o comando `workflow:sync` funcione corretamente ao importar arquivos de backup.
-
----
-
-# Estrutura Sugerida da Documentação
-
-## Dicionário e Modelagem
-
-### Descrição
-
-* O que você já tem.
-
----
-
-## API e Interfaces
-
-### Descrição
-
-* Classes e Métodos.
-
----
-
-## Casos de Uso
-
-### Descrição
-
-* Fluxos principais.
-
----
-
-## Regras de Negócio e Permissões
-
-### Descrição
-
-* Validações e Acessos.
-
----
-
-## Especificação da Definição (JSON)
-
-### Descrição
-
-* Estrutura da lógica do fluxo.
-
-### DTOs - Data transfer object 
-
-Todos DTOs devem possuir fromArray, toArray e validate.
-
-FromArray deve implementar validação.
-
-- WorkflowDefinitionData ✅
-    - RoleDefinition
-    - PlaceDefinition
-    - TransitionDefinition ✅
-        - métodos: 
-            - resolveNotificationDestinations
-        - DTO:
-            - NotificationDefinition
-            - BindingDefinition
-    
-### Enums
-
-- WorkflowStatus
-
----
-
-## Guia de Estilo e Testes
-
-### Descrição
-
-* Padrões de implementação.
