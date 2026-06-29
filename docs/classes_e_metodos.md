@@ -1,70 +1,73 @@
 # Classes e métodos
 
-## class WorkflowDefinition
+----------------------------------------------------
+## class Workflow
+
+* Métodos de busca retornam null quando não houver correspondência.
 
 ### Métodos
 
-#### $workflow::createObject(String $workflowName, Model $model): WorkflowObject
+#### Workflow::start(string $workflowName, Model $model): WorkflowObject ✅
 
-* Vincular um objeto (ex. Equivalencia) a um workflow específico, iniciando seu ciclo de vida em um estado predefinido.
+* Cria uma nova instância do workflow para o modelo informado, posicionando-a nos estados definidos em `initial_places`.
 
-#### Workflow::load(string $name, ?int version = null): WorkflowDefinition
+#### Workflow::find(Model $model): ?WorkflowObject ✅
 
-* Se não informado, retorna a versão 'publicado'
+* Retorna a instância de workflow associada ao modelo informado.
 
-#### $workflow->places(): array
+#### Workflow::loadDefinition(string $name, ?int $version = null): WorkflowDefinition ✅
 
-* retorna todos os places do workflow
+* Retorna a definição de um workflow.
+* Se `$version` não for informado, retorna a versão publicada do workflow.
 
-#### $workflow->transitions(): array
+----------------------------------------------------
+## class WorkflowDefinition extends Model
 
-* retorna todas as transitions do workflow
+* Métodos de busca retornam null quando não houver correspondência.
 
-#### $workflow->place(string $name)
+### Métodos
 
-* retorna dados de um place
+#### $workflow->place(string $name): array 📝
 
-#### $workflow->transition(string $name)
+* retorna dados do place com o nome fornecido.
+
+#### $workflow->transition(string $name): array 📝
 
 * retorna dados de uma transition
 
----
 
-## class WorkflowObject
+----------------------------------------------------
+## class WorkflowObject extends Model
+
+* Métodos de busca retornam null quando não houver correspondência.
 
 ### Métodos
 
-#### WorkflowObject::from(Model $model): ?WorkflowObject
+#### $object->apply(string $transition, array $context = [], ?User $user = null): bool ✅ ⚠️
 
-* retorna a instância de WorkflowObject associada ao objeto informado ou NULL.
+* Aplica uma `transition` em `$object`.
+* possui descrição complementar
 
-#### $object->currentPlaces(): array
+### $object->transitions(): array 📝
 
-* Retorna o place atual do objeto.
+* Retorna as transições associadas ao place atual.
 
-#### $object->can(string $transition, ?User $user = null): bool
+#### $object->workflowState(): array 📝
+
+* retorna o que UI precisa:
+  - actors
+  - transitions
+* possui descrição complementar
+
+#### $object->can(string $transition, ?User $user = null): bool 📝
 
 * Verifica se `transition` pode de ser executada.
 
-#### $object->apply(string $transition, array $context = [], ?User $user = null): bool
-
-* Executa uma transition em $object
-* possui descrição complementar
-
-#### $object->enabledTransitions(): Collection
-
-* lista transições possíveis
-
-#### $object->workflowState(): array
-
-* retorna tudo que UI precisa, place, actors, actions, forms
-* possui descrição complementar
-
-#### $object->model(): Model
+#### $object->model(): Model 📝
 
 * Retorna a instância do Model vinculada a este WorkflowObject.
 
-#### $object->history(): Collection WorkflowHistory
+#### $object->history(): Collection WorkflowHistory 📝
 
 * Retorna o histórico de transitions registrado em WorkflowHistory
 
@@ -86,6 +89,7 @@ Responsável por aplicar uma transição no workflow, validando regras e atualiz
 ### $context
 
 * informações adicionais a serem tratadas como ???????
+* deve processar dados do form associado
 * vale criar uma classe transitionContext para forçar um formato???
 
 ---
@@ -96,13 +100,13 @@ Responsável por aplicar uma transição no workflow, validando regras e atualiz
 
 ```php
 [
-    'current_place' => 'analise',
+    'current_places' => ['analise'],
 
     'actors' => [
         'Maria'
     ],
 
-    'actions' => [ // transitions possíveis
+    'transitions' => [ // transitions possíveis
         [
             'name' => 'aprovar',
             'label' => 'Aprovar',

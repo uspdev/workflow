@@ -22,12 +22,13 @@ Depende da biblioteca forms caso seja utilizado nas `transitions`.
 
 ## Casos de uso
 
-Sistema deve possuir um objeto que vai ser tramitado no workflow. Exemplo im objeto ($equivalencia) classe Equivalencia.
+Sistema deve possuir um objeto que vai ser tramitado no workflow. Exemplo de objeto ($equivalencia) classe Equivalencia.
 
 Para iniciar o processo associando um objeto de Equivalencia ao Workflow use:
 
 ```php
-    $wfObject = WorkflowDefinition::createObject('equivalencia', $equivalencia);
+$equivalencia = Equivalencia::load(1);
+$wfObject = Workflow::start('equivalencia', $equivalencia);
 ```
 
 Depois para ver o que consegue fazer:
@@ -35,17 +36,15 @@ Depois para ver o que consegue fazer:
     $state = $wfObject->workflowState();
 
 
+Para aplicar uma transição, sendo $data os dados do formulário:
+
+    $wfObject->apply('nome-transicao', $data);
+
+
+
 # Regras de Negócio Cruciais (RNs)
 
 Este documento é fundamental para definir as validações que o motor de workflow deve seguir.
-
-### O que incluir
-
-* Regras como "um pedido só pode ser cancelado se estiver no estado 'Rascunho'" ou "a transição 'Aprovar' exige que o campo X esteja preenchido".
-
-### Por que é importante
-
-* Ajuda a IA e os desenvolvedores a implementarem corretamente os métodos de validação antes de chamar o `$object->apply()`.
 
 ---
 
@@ -99,6 +98,26 @@ Como a lógica do fluxo (estados e transições) fica armazenada em uma coluna J
 ### Descrição
 
 * Estrutura da lógica do fluxo.
+
+### DTOs - Data transfer object 
+
+Todos DTOs devem possuir fromArray, toArray e validate.
+
+FromArray deve implementar validação.
+
+- WorkflowDefinitionData ✅
+    - RoleDefinition
+    - PlaceDefinition
+    - TransitionDefinition ✅
+        - métodos: 
+            - resolveNotificationDestinations
+        - DTO:
+            - NotificationDefinition
+            - BindingDefinition
+    
+### Enums
+
+- WorkflowStatus
 
 ---
 

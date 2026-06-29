@@ -2,11 +2,11 @@ Segue apenas com padronização de formatação em Markdown, sem alterar o conte
 
 # Tabelas
 
-## workflow_definitions
+## workflow_definitions ✅
 
 Contém as definições de workflows do sistema.
 
-### Campos
+### Campos (migration/fillable/casts/relacionamentos)
 
 | Campo        | Tipo/Observação       |
 | ------------ | --------------------- |
@@ -65,21 +65,21 @@ Contém as definições de workflows do sistema.
 
 ---
 
-## workflow_objects
+## workflow_objects ✅
 
 Contém as instâncias de workflow.
 
 ### Campos
 
-| Campo                  | Tipo/Observação                             |
-| ---------------------- | ------------------------------------------- |
-| id                     | PK                                          |
-| workflow_definition_id | FK                                          |
-| object_type, object_id | MORPH                                       |
-| current_places         | JSON                                        |
-| variables              | JSON                                        |
-| created_at             |                                             |
-| updated_at             |                                             |
+| Campo                  | Tipo/Observação          |
+| ---------------------- | ------------------------ |
+| id                     | PK                       |
+| workflow_definition_id | FK                       |
+| object_type, object_id | MORPH                    |
+| current_places         | JSON                     |
+| variables              | JSON                     |
+| created_at             |                          |
+| updated_at             |                          |
 
 ### Descrição dos campos
 
@@ -121,7 +121,7 @@ Contém as instâncias de workflow.
 
 ---
 
-## workflow_history
+## workflow_history ✅
 
 Histórico de transições.
 
@@ -169,7 +169,7 @@ Histórico de transições.
 
 
 
-## workflow_role_users
+## workflow_role_users ✅
 
 Quais usuários podem atuar em cada role do workflow.
 
@@ -195,7 +195,7 @@ Quais usuários podem atuar em cada role do workflow.
 
 ---
 
-## workflow_role_emails
+## workflow_role_emails ✅
 
 Permite associar endereços de e-mail a uma role para fins de notificação.
 
