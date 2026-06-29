@@ -2,19 +2,23 @@
 
 namespace Uspdev\Workflow\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
-use Illuminate\Support\Facades\File;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\File;
+use Uspdev\Workflow\DTO\PlaceDefinition;
+use Uspdev\Workflow\DTO\TransitionDefinition;
+use Uspdev\Workflow\DTO\WorkflowDefinitionData;
+use Uspdev\Workflow\Enums\WorkflowStatus;
 
 class WorkflowDefinition extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'name'; 
-    public $incrementing = false; 
+    protected $primaryKey = 'name';
+    public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -23,19 +27,58 @@ class WorkflowDefinition extends Model
         'definition',
     ];
 
-    protected $casts = [
-        'definition' => 'array', 
+    protected $attributes = [
+        'status' => 'draft', // Usamos a string pura aqui para o array do Eloquent
     ];
+
+    protected $casts = [
+        'definition' => 'array',
+        'status' => WorkflowStatus::class, // Transforma a string do banco no objeto Enum do PHP
+    ];
+
+    /**
+     * Ele pega o array do banco ($this->definition) e o transforma
+     * no DTO estruturado e validado.
+     */
+    public function getDefinitionData(): WorkflowDefinitionData
+    {
+        return WorkflowDefinitionData::fromArray($this->definition ?? []);
+    }
+
+    /**
+     * retorna dados do place com o nome fornecido.
+     */
+    public function place(string $placeName): PlaceDefinition
+    {
+        //
+    }
+
+    /**
+     * retorna dados de uma transition
+     */
+    public function transition(string $transitionName): TransitionDefinition
+    {
+        //
+    }
+
+
+    // **************************************
+
+
+
+
+
+
 
     /**
      *  Gera uma imagem '.png' que exibe um grafo contendo os
      * 'places' e 'transitions' do wokflow utilizando a bilbioteca Graphp;
-     * 
+     *
      *  - 'Places' da definiçãosão representados por nós (vértices) circulares no grafo;
      *  - Se o 'place' é um 'initial_place', a cor do círculo se torna azul;
      *  - As 'transitions' no workflwo são representadas por arestas no grafo, ligando os vértices uns aos outros;
      *  - Cada aresta contém o nome da 'transition' que representa.
-     * 
+     *
      *  @return void
      */
     public function generatePng()
@@ -56,13 +99,13 @@ class WorkflowDefinition extends Model
             }
 
             /**
-            * Transforma os metadados dos 'places' da definição em strings, no formato:
-            *   
-            * NomeDoPlace
-            * Metadata:
-            * chave1: valor1,valor2 ...
-            * chave2: valor1,valor2 ...
-            */
+             * Transforma os metadados dos 'places' da definição em strings, no formato:
+             *
+             * NomeDoPlace
+             * Metadata:
+             * chave1: valor1,valor2 ...
+             * chave2: valor1,valor2 ...
+             */
             $metadata = '';
             if (isset($place['metadata'])) {
                 $metadataArray = [];
@@ -71,29 +114,29 @@ class WorkflowDefinition extends Model
                 }
                 $metadata = implode("\n", $metadataArray);
             }
-        
+
             $label = $placeName;
             if ($metadata) {
-                $label .= "\nMetadata:\n" . $metadata ."\n";
+                $label .= "\nMetadata:\n" . $metadata . "\n";
             }
 
             $vertex = $graph->createVertex(array('name' => $placeName));
-            $vertex->setAttribute('graphviz.shape', 'circle'); 
+            $vertex->setAttribute('graphviz.shape', 'circle');
 
             if (in_array($placeName, $initialPlaces)) {
-                $vertex->setAttribute('graphviz.style', 'filled'); 
-                $vertex->setAttribute('graphviz.fillcolor', 'lightblue'); 
+                $vertex->setAttribute('graphviz.style', 'filled');
+                $vertex->setAttribute('graphviz.fillcolor', 'lightblue');
             }
-            
+
             $vertices[$placeName] = $vertex;
         }
-        
+
         foreach ($definition['transitions'] as $transitionName => $transition) {
 
             $fromPlace = $vertices[$transition['from']];
             $toPlaces = is_array($transition['tos']) ? $transition['tos'] : [$transition['tos']];
 
-            foreach($toPlaces as $toPlace){
+            foreach ($toPlaces as $toPlace) {
                 $edge = $graph->createEdgeDirected($fromPlace, $vertices[$toPlace]);
                 $edge->setAttribute('graphviz.label', $transitionName);
             }
@@ -102,30 +145,31 @@ class WorkflowDefinition extends Model
         $graphviz = new GraphViz();
 
         $tmpFilePath = $graphviz->createImageFile($graph);
-        $destinationPath = storage_path('app/public/'. $this->name . '.png'); 
+        $destinationPath = storage_path('app/public/' . $this->name . '.png');
         rename($tmpFilePath, $destinationPath);
     }
 
     /**
      *  Lista todas as definições de workflow que existam no momento
-     * 
+     *
      *  - Acessa o diretório 'WORKFLOW_STORAGE_PATH' definido no arquivo '.env' (ver 'config/workflow.php' para alterar caminho padrão);
      *  - Verifica todos os arquivos com a extensão '.json' (formato das definições);
      *  - Retorna um array contendo somente o nome de cada definição.
-     * 
+     *
      * @return array<array|string>
      */
-    public static function list(){
+    public static function list()
+    {
         $workflowStoragePath = config('workflow.workflow_storage_path');
 
-        if(!is_dir($workflowStoragePath)){
-            mkdir($workflowStoragePath,0755);
+        if (!is_dir($workflowStoragePath)) {
+            mkdir($workflowStoragePath, 0755);
         }
 
         $path = "{$workflowStoragePath}/*.json";
-        $files = glob($path); 
+        $files = glob($path);
 
-        return array_map(function($file) {
+        return array_map(function ($file) {
             return pathinfo($file, PATHINFO_FILENAME);
         }, $files);
     }
@@ -136,7 +180,7 @@ class WorkflowDefinition extends Model
      *  - Verifica a existência do arquivo '.json' da definição;
      *  - Decodifica o json e cria a definition, salvando no banco de dados;
      *  - Caso a  definição já exista no banco de dados, lança uma exception e não salva a definition duplicada;
-     * 
+     *
      *  @param String $definitionName
      *  @throws \Exception
      *  @return String
@@ -146,7 +190,7 @@ class WorkflowDefinition extends Model
         $workflowStoragePath = config('workflow.workflow_storage_path');
 
         $filePath = "{$workflowStoragePath}/{$definitionName}.json";
-        
+
         if (!File::exists($filePath)) {
             throw new \Exception("Definição {$definitionName} não encontrada.");
         }
@@ -156,8 +200,8 @@ class WorkflowDefinition extends Model
 
         try {
             SELF::create([
-                'name' => $definitionData['name'], 
-                'description' => $definitionData['description'], 
+                'name' => $definitionData['name'],
+                'description' => $definitionData['description'],
                 'definition' => $definitionData
             ]);
 
@@ -166,7 +210,7 @@ class WorkflowDefinition extends Model
             if ($e->getCode() === '23000') {
                 throw new \Exception("A definição '{$definitionName}' já existe no banco de dados.");
             }
-            throw $e; 
+            throw $e;
         }
     }
 }
