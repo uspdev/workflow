@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('uspdev-workflow::layouts.app')
 
 @section('content')
   <div class="mt-5">
