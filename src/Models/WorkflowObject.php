@@ -4,8 +4,13 @@ namespace Uspdev\Workflow\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Uspdev\Forms\Form;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
@@ -14,13 +19,7 @@ class WorkflowObject extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'workflow_definition_id',
-        'object_type',
-        'object_id',
-        'current_places',
-        'variables',
-    ];
+    protected $fillable = ['workflow_definition_id', 'object_type', 'object_id', 'current_places', 'variables'];
 
     protected $casts = [
         'current_places' => 'array',
@@ -33,9 +32,9 @@ class WorkflowObject extends Model
      * ### Etapas
      * valida a transição
      * valida permissões
-     * valida form: retorna para UI caso validação falhe
-     * executa a transição
+     * 3. valida form e executa bindings: retorna para UI caso validação falhe
      * registra workflow_history
+     * executa a transição
      * notifica quem precisar
      */
     public function apply(string $transitionName, array $inputData, ?User $user = null): bool
@@ -49,31 +48,43 @@ class WorkflowObject extends Model
             throw new TransitionNotAllowedException("Você não tem permissão para executar a ação '{$transitionName}' no estado atual.");
         }
 
-        // 1. Se a transição exige um formulário do uspdev/forms, validamos os dados primeiro
-        if ($transition->form) {
-            // trata dados do form: valida e persiste
-            // retorna objeto do form caso precise usar em bindings
-            $form = (new Form(['editable' => true]))->handleSubmission($inputData);
-        }
-
-        if ($transition->bindings->isNotEmpty()) {
-            foreach ($transition->bindings as $binding) {
-                // 1. Extrai o valor do input (ex: transforma 'form.user_codpes' em $inputData['user_codpes'])
-                $rawKey = str_replace('form.', '', $binding->from);
-                $rawValue = Arr::get($inputData, $rawKey);
-
-                // 2. Resolve o valor baseado na estratégia do 'resolver'
-                $resolvedValue = $this->resolveBindingValue($binding->resolver, $rawValue);
-
-                // 3. Alimenta o atributo do Model Local dinâmicamente
-                $this->variables->{$binding->attribute} = $resolvedValue;
+        DB::transaction(function () use ($transitionName, $transition, $user, $inputData) {
+            // 3. valida form
+            if ($transition->form) {
+                //todo: precisa validar
+                // handleSubmission deve lançar exception se validação falhar
+                $form = $transition->form()->handleSubmission($inputData);
             }
-        }
 
-        $this->current_place = $transition->tos;
-        $this->save();
+            if ($transition->bindings->isNotEmpty()) {
+                // todo: precisa validar esta lógica
+                foreach ($transition->bindings as $binding) {
+                    // 1. Extrai o valor do input (ex: transforma 'form.user_codpes' em $inputData['user_codpes'])
+                    $rawKey = str_replace('form.', '', $binding->from);
+                    $rawValue = Arr::get($inputData, $rawKey);
 
+                    // 2. Resolve o valor baseado na estratégia do 'resolver'
+                    $resolvedValue = $this->resolveBindingValue($binding->resolver, $rawValue);
 
+                    // 3. Alimenta o atributo do Model Local dinâmicamente
+                    $this->variables->{$binding->attribute} = $resolvedValue;
+                }
+            }
+
+            $this->current_place = $transition->tos;
+
+            $this->save();
+            $this->history()->create([
+                'transition' => $transitionName,
+                'from_place' => implode(',', $transition->from),
+                'to_places' => implode(',', $transition->to),
+                'user_id' => $user?->id,
+                'form_submission_id' => $form?->id,
+                'metadata' => [],
+            ]);
+        });
+
+        // todo: notifica quem precisar
         // notifications está bugado
         // Passamos o grafo ($definitionData) para que o DTO consiga calcular as roles padrão dos 'tos'
         // $destinatarios = $transition->resolveNotificationDestinations($definitionData);
@@ -82,17 +93,6 @@ class WorkflowObject extends Model
         // A melhor prática no Laravel é disparar um Evento para que o envio do e-mail
         // aconteça em background (fila/Queue), sem travar a tela do usuário.
         // event(new WorkflowTransitionExecuted($this, $transition, $destinatarios));
-
-        $this->history()->create([
-            'workflow_object_id' => $this->id, // O Laravel preenche automático via relacionamento, mas é bom ilustrar
-            'transition'         => $transitionName,
-            'from_places'        => $transition->from,
-            'to_places'          => $transition->tos,
-            'user_id'            => $user?->id, // ID do usuário que executou a ação (null se for automatizado)
-            'form_submission_id' => $inputData['form_submission_id'] ?? null,
-            'metadata'           => $inputData,
-        ]);
-
         return true;
     }
 
@@ -123,7 +123,6 @@ class WorkflowObject extends Model
         // TODO: Implementar montagem da estrutura para a interface gráfica
     }
 
-
     /**
      * Verifica se uma transição específica pode ser executada.
      *
@@ -146,15 +145,6 @@ class WorkflowObject extends Model
         // TODO: Implementar retorno do modelo
     }
 
-    /**
-     * Retorna o histórico de transições registrado para este objeto.
-     *
-     * @return \Illuminate\Support\Collection<\App\Models\WorkflowHistory>  Coleção com o histórico de transições.
-     */
-    public function history(): Collection
-    {
-        // TODO: Implementar retorno do histórico
-    }
 
     /**
      * Sistema de mapeamento de Resolvers (Pode ser expandido com Services do Laravel)
@@ -164,7 +154,6 @@ class WorkflowObject extends Model
         return match ($resolver) {
             // Exemplo de resolver do ecossistema USP: Busca o ID do usuário local pelo Número USP
             'user_by_codpes' => \App\Models\User::where('codpes', $value)->first()?->id,
-
             // Se não exigir nenhum resolver complexo, apenas retorna o dado puro
             'direct', 'raw' => $value,
 
@@ -190,7 +179,6 @@ class WorkflowObject extends Model
         return $this->belongsTo(WorkflowDefinition::class, 'workflow_definition_id');
     }
 
-
     // ******************************
 
     /**
@@ -198,9 +186,17 @@ class WorkflowObject extends Model
      *
      *  @return BelongsTo <WorkflowDefinition, WorkflowObject>
      */
-    public function workflowDefinition()
+    public function workflowDefinition(): belongsTo
     {
         return $this->belongsTo(WorkflowDefinition::class);
+    }
+
+    /**
+     * Relacionamento com histórico
+     */
+    public function history(): HasMany
+    {
+        return $this->hasMany(WorkflowHistory::class);
     }
 
     /**

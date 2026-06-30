@@ -99,19 +99,19 @@ Campos:
 ---
 ### DTOs - Data transfer object 
 
-Todos DTOs devem possuir fromArray, toArray e validate.
+Estrutura de DTOs. O DTO possui "sub-DTO".
 
-FromArray deve implementar validação.
+Todos DTOs devem possuir `fromArray`, `toArray` e `validate`.
 
 - WorkflowDefinitionData ✅
     - RoleDefinition
     - PlaceDefinition
     - TransitionDefinition ✅
+        - NotificationDefinition
+        - BindingDefinition
         - métodos: 
             - resolveNotificationDestinations
-        - DTO:
-            - NotificationDefinition
-            - BindingDefinition
+            - form
 
 ---
 ### Exemplo de `definition`
