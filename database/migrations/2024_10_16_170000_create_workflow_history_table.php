@@ -14,10 +14,10 @@ return new class extends Migration
         Schema::create('workflow_history', function (Blueprint $table) {
             $table->id();
             $table->foreignId('workflow_object_id')->constrained()->onDelete('cascade');
-            $table->string('transition'); // nome da transiçao que gerouo histórico
-            $table->string('from_places'); // Estado(s) de origem
-            $table->string('to_places');   // Estado(s) de destino
-            $table->foreignId('user_id')->constrained('users'); // Usuário que realizou a ação
+            $table->string('transition'); // nome da transiçao que gerou o histórico
+            $table->string('from_place'); // Estado de origem
+            $table->string('to_places'); // Estado(s) de destino
+            $table->foreignId('user_id')->nullable()->constrained('users'); // Usuário que realizou a ação
             $table->unsignedBigInteger('form_submission_id')->nullable(); // ID da submissão do formulário (opcional)
             $table->json('metadata')->nullable(); // Metadados adicionais em formato JSON
             $table->timestamps();

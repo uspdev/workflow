@@ -6,6 +6,13 @@ use InvalidArgumentException;
 
 abstract class AbstractWfDto
 {
+
+    abstract public static function fromArray(array $data): static;
+
+    abstract public function toArray(): array;
+
+    abstract public static function validate(array $data): void;
+
     // === Métodos Privados Auxiliares de Validação ===
 
     private static function invalidType(string $field, string $type): never

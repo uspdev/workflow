@@ -3,6 +3,7 @@
 namespace Uspdev\Workflow\DTO;
 
 use Illuminate\Support\Collection;
+use Uspdev\Forms\Form;
 use Uspdev\Workflow\Data\AbstractWfDto;
 
 class TransitionDefinition extends AbstractWfDto
@@ -12,7 +13,7 @@ class TransitionDefinition extends AbstractWfDto
      * @param string $label Texto do botão na UI (ex: 'Aprovar Pedido')
      * @param array<string> $from Locais de origem que permitem esta ação (ex: ['analise'])
      * @param array<string> $tos Locais de destino após a ação (ex: ['aprovado'])
-     * @param string $form Nome ou ID do formulário associado a esta transição na UI (opcional)
+     * @param string $form Nome do formulário associado a esta transição na UI (opcional)
      * @param Collection $bindings
      * @param Collection $notifications
      */
@@ -29,7 +30,7 @@ class TransitionDefinition extends AbstractWfDto
     /**
      * Cria uma instância do DTO a partir de um array bruto (banco ou request).
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
         self::validate($data);
 
@@ -51,17 +52,17 @@ class TransitionDefinition extends AbstractWfDto
      */
     public static function validate(array $data): void
     {
-    self::requireString($data, 'name');
-    self::optionalString($data, 'label');
-    self::requireString($data, 'from');
-    self::requireArray($data, 'tos');
-    self::optionalString($data, 'form');
-    self::optionalArray($data, 'bindings');
-    self::optionalArray($data, 'notifications');
+        self::requireString($data, 'name');
+        self::optionalString($data, 'label');
+        self::requireString($data, 'from');
+        self::requireArray($data, 'tos');
+        self::optionalString($data, 'form');
+        self::optionalArray($data, 'bindings');
+        self::optionalArray($data, 'notifications');
 
-    // TODO (WorkflowDefinitionData):
-    // - validar que from referencia places existentes
-    // - validar que tos referencia places existentes
+        // TODO (WorkflowDefinitionData):
+        // - validar que from referencia places existentes
+        // - validar que tos referencia places existentes
     }
 
     /**
@@ -138,5 +139,17 @@ class TransitionDefinition extends AbstractWfDto
             'users'  => array_values(array_unique($finalUsers)),
             'emails' => array_values(array_unique($finalEmails)),
         ];
+    }
+
+    /**
+     * Retorna instância do form associado à transição
+     */
+    public function form(): ?Form
+    {
+        if ($this->form === null) {
+            return null;
+        }
+
+        return new Form(['name' => $this->form]);
     }
 }
