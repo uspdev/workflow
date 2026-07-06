@@ -20,6 +20,9 @@ Lista de roles disponíveis no workflow.
 | label  |                 |
 | source | opt             |
 
+
+// todo: mudar nome source para binding. fica mais compatível com bindings do transitions
+
 ### Descrição dos campos
 
 **source**
