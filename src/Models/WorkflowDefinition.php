@@ -17,7 +17,7 @@ class WorkflowDefinition extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'name';
+    protected $primaryKey = ['name', 'version'];
     public $incrementing = false;
     protected $keyType = 'string';
 
@@ -25,6 +25,9 @@ class WorkflowDefinition extends Model
         'name',
         'description',
         'definition',
+        'version',
+        'status',
+        'published_at',
     ];
 
     protected $attributes = [
@@ -34,6 +37,7 @@ class WorkflowDefinition extends Model
     protected $casts = [
         'definition' => 'array',
         'status' => WorkflowStatus::class, // Transforma a string do banco no objeto Enum do PHP
+        'published_at' => 'datetime',
     ];
 
     /**

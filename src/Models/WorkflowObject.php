@@ -19,6 +19,10 @@ class WorkflowObject extends Model
 {
     use HasFactory;
 
+    protected $primaryKey = 'id';
+
+    public $incrementing = true;
+    
     protected $fillable = ['workflow_definition_id', 'object_type', 'object_id', 'current_places', 'variables'];
 
     protected $casts = [

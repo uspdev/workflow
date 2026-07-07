@@ -21,6 +21,7 @@ use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
 use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
+use Illuminate\Database\Eloquent\Model;
 
 class Workflow
 {
@@ -998,5 +999,30 @@ class Workflow
             }
         }
     }
+
+    public static function loadDefinition(string $definitionName, int $version = null): WorkflowDefinition
+    {
+        if(isset($version)) 
+        {
+            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)
+                ->where('version', $version)->firstOrFail();
+        } 
+        else 
+        {
+            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)->where('status', 'published')->firstOrFail();
+        }
+        return $workflowDefinition;
+    }
+
+    public static function find(Model $model): WorkflowObject
+    {
+        $workflowObject = WorkflowObject::where('object_type', get_class($model))
+            ->where('object_id', $model->getKey())
+            ->firstOrFail();
+
+        return $workflowObject;
+    }
+
+    public static function
 
 }

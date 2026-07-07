@@ -10,7 +10,6 @@ use Uspdev\Forms\Models\FormSubmission;
 class WorkflowHistory extends Model
 {
     protected $table = 'workflow_history';
-
     protected $casts = [
         'metadata' => 'array',
     ];
