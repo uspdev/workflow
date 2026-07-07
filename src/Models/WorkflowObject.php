@@ -22,7 +22,7 @@ class WorkflowObject extends Model
     protected $primaryKey = 'id';
 
     public $incrementing = true;
-    
+
     protected $fillable = ['workflow_definition_id', 'object_type', 'object_id', 'current_places', 'variables'];
 
     protected $casts = [
@@ -255,4 +255,31 @@ class WorkflowObject extends Model
     //         ->withProperties(['state' => $newState])
     //         ->log("Updated to {$newState}");
     // }
+
+    public static function createObject(WorkflowDefinition $workflowDefinition, Model $model): WorkflowObject
+    {
+        $workflowObject = new WorkflowObject();
+        $workflowObject->workflow_definition_id = $workflowDefinition->id;
+        $workflowObject->object_type = get_class($model);
+        $workflowObject->object_id = $model->getKey();
+        $workflowObject->current_places = $workflowDefinition->definition['initial_places'] ?? [];
+
+        // TODO - Implementar lógica para inicializar variáveis com base na definição do workflow
+        // $variables_arr = [];
+
+        // foreach($workflowDefinition->definition['roles'] as $role)
+        // {
+        //     if(str_starts_with($role,'@'))
+        //     {
+        //         $role_name = str_replace('@','',$role);
+        //         $variables_arr[$role_name] = '';
+        //     }
+        // }
+
+        // $workflowObject->variables = $variables_arr;
+        $workflowObject->variables = [];
+        $workflowObject->save();
+
+        return $workflowObject;
+    }
 }
