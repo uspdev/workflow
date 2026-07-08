@@ -528,7 +528,7 @@ class Workflow
     //                 $forms[] = $formData;
     //             }
     //         }
-    //     }
+    //  // dd(config('uspdev-workflow.currModel'));   }
 
     //     $workflowObjectData = [
     //     'workflowObject' => $fakeWorkflowObject,
@@ -1000,6 +1000,14 @@ class Workflow
         }
     }
 
+    /**
+     * Instancia uma definição de workflow, identificada pelo nome e pela versão.
+     * Retorna null caso a definição desejada não seja encontrada.
+     * Caso a versão não seja especificada, a versão publicada será retornada.
+     * @param string $definitionName
+     * @param int $version
+     * @return object|WorkflowDefinition|null
+     */
     public static function loadDefinition(string $definitionName, int $version = null): ?WorkflowDefinition
     {
         if(isset($version)) 
@@ -1014,6 +1022,12 @@ class Workflow
         return $workflowDefinition;
     }
 
+    /**
+     * Recupera o workflow atrelado àquele objeto.
+     * Busca pelo tipo do objeto e pelo id do mesmo, retornando null caso não encontre.
+     * @param Model $model
+     * @return object|Model|null
+     */
     public static function find(Model $model): ?WorkflowObject
     {
         $workflowObject = WorkflowObject::where('object_type', get_class($model))
@@ -1023,12 +1037,21 @@ class Workflow
         return $workflowObject;
     }
 
-    public static function start(string $workflow_name, Model $model): WorkflowObject
+    /**
+     * Inicia e retorna a instância de um workflow, a partir de sua definição.
+     * Atrela o objeto à um Model, que servirá para identificação do objeto.
+     * Caso não encontre a definição ou o Model seja null, retorna null.
+     * @param string $definitionName
+     * @param Model $model
+     * @return WorkflowObject|null
+     */
+    public static function start(string $definitionName, Model $model): ?WorkflowObject
     {
-        $workflow_def = SELF::loadDefinition($workflow_name);
-        if(!isset($workflow_def)) 
+        $workflow_def = SELF::loadDefinition($definitionName);
+        if(!isset($workflow_def,$model)) 
         {
-            throw new \Exception("Workflow definition not found: $workflow_name");
+            // throw new \Exception("Workflow definition not found: $definitionName");
+            return null;
         }
         return WorkflowObject::createObject($workflow_def, $model);
     }
