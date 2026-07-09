@@ -54,7 +54,14 @@ class WorkflowDefinition extends Model
      */
     public function place(string $placeName): PlaceDefinition
     {
-        //
+        $places = $this->definition['places'];
+        $place_data = [
+            'name' => $placeName,
+            'label' => $places[$placeName]['label'] ?? '',
+            'roles' => $places[$placeName]['roles'] ?? [],
+        ];
+
+        return PlaceDefinition::fromArray($place_data);
     }
 
     /**
@@ -62,9 +69,30 @@ class WorkflowDefinition extends Model
      */
     public function transition(string $transitionName): TransitionDefinition
     {
-        // todo: implementar
+        $transitions = $this->definition['transitions'];;
+
+        $transition_data = [
+            'name' => $transitionName,
+            'label' => $transitions[$transitionName]['label'] ?? '',
+            'from' => $transitions[$transitionName]['from'] ?? '',
+            'tos' => $transitions[$transitionName]['tos'] ?? [],
+            'form' => $transitions[$transitionName]['form'] ?? null,
+        ];
+
+        return TransitionDefinition::fromArray($transition_data);
     }
 
+    public function transitionsFromPlace(string $placeName): array
+    {
+        $transitions = $this->definition['places'][$placeName]['transitions'] ?? [];
+        $availableTransitions = [];
+        foreach($transitions as $transitionName)
+        {
+            $availableTransitions[] = $this->transition($transitionName);
+        }
+
+        return $availableTransitions;
+    }
 
     // **************************************
 
