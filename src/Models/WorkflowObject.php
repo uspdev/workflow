@@ -14,6 +14,7 @@ use Illuminate\Validation\ValidationException;
 use Uspdev\Forms\Form;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
+use Uspdev\Workflow\DTO\TransitionDefinition;
 
 class WorkflowObject extends Model
 {
@@ -103,11 +104,22 @@ class WorkflowObject extends Model
     /**
      * Retorna a lista de transições associadas ao place atual.
      *
-     * @return array<\App\DTOs\WorkflowTransitionDTO> Lista de DTOs das transições disponíveis.
+     * @return array<TransitionDefinition> Lista de DTOs das transições disponíveis.
      */
-    public function transitions(): array
-    {
-        // TODO: Implementar lógica que lê o "place" atual e busca as transições
+    public function transitions(): ?array
+    {   
+        /** @var WorkflowDefinition */
+        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
+        if (isset($workflowDefinition)) 
+        {
+            $curr_place_trans = [];
+            foreach($this->current_places as $place) 
+            {
+                $curr_place_trans[$place] = $workflowDefinition->transitionsFromPlace($place);
+            }
+            return $curr_place_trans;
+        }
+        return null;
     }
 
     /**
@@ -136,7 +148,34 @@ class WorkflowObject extends Model
      */
     public function can(string $transition, ?User $user = null): bool
     {
-        // TODO: Implementar lógica de verificação da transição
+        $can = true;
+        /** @var WorkflowDefinition */
+        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
+        $places = $workflowDefinition->definition['places'] ?? [];
+        $transitionData = $workflowDefinition->transition($transition);
+        if(isset($user))
+        {
+            foreach($transitionData->from as $fromPlace) 
+            {
+                if(!empty($places[$fromPlace]['roles']))
+                {
+                    if(!$user->hasRole($places[$fromPlace]['roles']))
+                    {
+                        $can = false; break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            foreach($transitionData->from as $fromPlace) 
+            {
+                if(!empty($places[$fromPlace]['roles']))
+                {$can = false; break;}
+            }
+        }
+
+        return $can;
     }
 
     /**
@@ -144,9 +183,9 @@ class WorkflowObject extends Model
      *
      * @return \Illuminate\Database\Eloquent\Model  A instância do modelo do Laravel.
      */
-    public function model(): Model
+    public function model(): ?Model
     {
-        // TODO: Implementar retorno do modelo
+        return $this->object_type::find($this->object_id);
     }
 
 
@@ -264,20 +303,18 @@ class WorkflowObject extends Model
         $workflowObject->object_id = $model->getKey();
         $workflowObject->current_places = $workflowDefinition->definition['initial_places'] ?? [];
 
-        // TODO - Implementar lógica para inicializar variáveis com base na definição do workflow
-        // $variables_arr = [];
+        $variables_arr = [];
 
-        // foreach($workflowDefinition->definition['roles'] as $role)
-        // {
-        //     if(str_starts_with($role,'@'))
-        //     {
-        //         $role_name = str_replace('@','',$role);
-        //         $variables_arr[$role_name] = '';
-        //     }
-        // }
+        foreach($workflowDefinition->definition['roles'] as $role)
+        {
+            if(str_starts_with($role['name'],'@'))
+            {
+                $role_name = str_replace('@','',$role['name']);
+                $variables_arr[$role_name] = '';
+            }
+        }
 
-        // $workflowObject->variables = $variables_arr;
-        $workflowObject->variables = [];
+        $workflowObject->variables = $variables_arr;
         $workflowObject->save();
 
         return $workflowObject;
