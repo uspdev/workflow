@@ -204,7 +204,7 @@ class WorkflowObject extends Model
     /**
      * Retorna a instância do Model vinculada a este objeto de workflow.
      *
-     * @return \Illuminate\Database\Eloquent\Model  A instância do modelo do Laravel.
+     * @return Model  A instância do modelo do Laravel.
      */
     public function model(): ?Model
     {
