@@ -136,7 +136,30 @@ class WorkflowObject extends Model
      */
     public function workflowState(): array
     {
-        // TODO: Implementar montagem da estrutura para a interface gráfica
+        $data = [
+            'current_places' => $this->current_places,
+            'actors' => [],
+            'transitions' => [],
+        ];
+
+        // TODO - Recuperar Actors corretamente
+        $actors_arr = [];
+        $workflow_def = WorkflowDefinition::find($this->workflow_definition_id);
+        foreach($this->current_places as $place) 
+        {
+            $place_def = $workflow_def->place($place);
+            $actors_arr[] = $place_def->roles;
+        }
+
+        $transition_arr = [];
+        foreach($this->transitions() as $transition)
+        {
+            $transition_arr[] = $transition->toArray();
+        }
+
+        $data['actors'] = $actors_arr;
+        $data['transitions'] = $transition_arr;
+        return $data;
     }
 
     /**
