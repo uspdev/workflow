@@ -94,6 +94,15 @@ class WorkflowDefinition extends Model
         return $availableTransitions;
     }
 
+    /**
+     * Lista todos os objetos de workflow que estão associados a esta definição.
+     * @return \Illuminate\Database\Eloquent\Collection<int, WorkflowObject>
+     */
+    public function listObjects()
+    {
+        return WorkflowObject::where('workflow_definition_id', $this->id)->get();
+    }
+
     // **************************************
 
 
