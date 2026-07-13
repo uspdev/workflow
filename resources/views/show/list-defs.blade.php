@@ -28,6 +28,7 @@
             <tr>
               <td>
                 <a href="{{ route('workflows.showDefinition',$workflowDefinition->name) }}">{{ $workflowDefinition->name }}</a>
+                <a href="{{ route("workflows.createObject", $workflowDefinition->name) }}" class="btn btn-sm btn-success">Criar Objeto</a>
               </td>
               <td>
                 {{ $workflowDefinition->description }}
