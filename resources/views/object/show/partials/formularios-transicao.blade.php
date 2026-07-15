@@ -8,7 +8,7 @@
                 <div class="card mb-3 inline-transition-form d-none"
                     data-transition="{{ $formulario['transition'] }}">
                     <div class="card-header">
-                        Transição: <strong>@include('show.partials.transition-label')</strong>
+                        Transição: <strong>@include('uspdev-workflow::object.show.partials.transition-label')</strong>
                     </div>
                     <div class="card-body">
                         {!! $formulario['html'] !!}

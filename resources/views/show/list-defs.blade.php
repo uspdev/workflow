@@ -28,13 +28,15 @@
             <tr>
               <td>
                 <a href="{{ route('workflows.showDefinition',$workflowDefinition->name) }}">{{ $workflowDefinition->name }}</a>
-                <a href="{{ route("workflows.createObject", $workflowDefinition->name) }}" class="btn btn-sm btn-success">Criar Objeto</a>
+                
               </td>
               <td>
                 {{ $workflowDefinition->description }}
               </td>
               <td class="d-flex justify-content-start">
                 @include('uspdev-workflow::show.partials.edit-btn')
+                <a href="{{ route("workflows.destroyDefinition", ['definition' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-danger">Remover</a>
+                <a href="{{ route("workflows.createObject", ['definition' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-success">Criar Objeto</a>
               </td>
             </tr>
           @endforeach

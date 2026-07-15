@@ -2,11 +2,14 @@
 
 namespace Uspdev\Workflow\Http\Controllers;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Workflow;
+use Uspdev\Workflow\Models\WorkflowDefinition;
 
 class WorkflowController extends Controller
 {
@@ -28,7 +31,7 @@ class WorkflowController extends Controller
      */
     public function storeDefinition(Request $request)
     {
-        Workflow::criarWorkflowDefinition($request);
+        WorkflowDefinition::storeDefinition($request);
 
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition criada com sucesso.');
     }
@@ -39,7 +42,7 @@ class WorkflowController extends Controller
      */
     public function listDefinitions()
     {
-        $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
+        $workflowDefinitions = WorkflowDefinition::all();
 
         return view('uspdev-workflow::show.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
     }
@@ -71,14 +74,23 @@ class WorkflowController extends Controller
 
     /**
      * Remove a definição de workflow, com o nome referenciado como parâmetro, do banco de dados.
-     * @param mixed $definitionName
+     * @param string $definitionName
+     * @param int $version
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroyDefinition($definitionName)
+    public function destroyDefinition(string $definitionName, int $version)
     {
-        Workflow::deletarDefinicaodeWorkflow($definitionName);
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
 
-        return redirect()->route('workflows.list-definitions')->with('success', 'Definition apagada com sucesso.');
+        $status = '';
+        $message = '';
+
+        $deleted = $workflowDef->destroyDefinition();
+
+        if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
+        else {$status = 'danger'; $message = 'Impossível remover definition.';}
+
+        return redirect()->route('workflows.list-definitions')->with($status, $message);
     }
 
     /**
@@ -86,11 +98,11 @@ class WorkflowController extends Controller
      * @param mixed $definitionName
      * @return \Illuminate\Contracts\View\View
      */
-    public function editDefinition($definitionName)
+    public function editDefinition(string $definitionName, int $version)
     {
-        $workflow = Workflow::obterWorkflowDefinition($definitionName);
-
-        return view('uspdev-workflow::definition.edit', compact('workflow'));
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        
+        return view('uspdev-workflow::definition.edit', compact('workflowDef'));
     }
 
     /**
@@ -101,7 +113,7 @@ class WorkflowController extends Controller
      */
     public function updateDefinition(Request $request)
     {
-        Workflow::atualizarWorkflow($request);
+        WorkflowDefinition::storeDefinition($request);
 
         return redirect()->route('workflows.showDefinition', ['definition' => $request->name]);
     }
@@ -122,15 +134,14 @@ class WorkflowController extends Controller
      * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
      * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
      * @param mixed $definitionName
-     * @return \Illuminate\Contracts\View\View
+     * @return RedirectResponse
      */
-    public function createObject($definitionName)
+    public function createObject(string $definitionName)
     {
-        $workflowObjectData = Workflow::criarWorkflowObject($definitionName);
-        $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
-        $workflowObjectData['orientacaoUsuario'] = [];
+        $model = new WorkflowDefinition();
 
-        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
+        $workflowObject = Workflow::start($definitionName, $model);
+        return redirect()->route('workflows.showObject', ['id' => $workflowObject->id]);
     }
 
     /**
@@ -176,7 +187,8 @@ class WorkflowController extends Controller
      */
     public function showObject($id)
     {
-        $workflowObjectData = Workflow::obterDadosDoObjeto($id);
+        
+        $workflowObjectData = WorkflowObject::obterDadosDoObjeto($id);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
 
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
@@ -289,7 +301,7 @@ class WorkflowController extends Controller
     {
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
         // Obter as chaves dos estados atuais do objeto e mapear para suas descrições
-        $chavesEstadoAtual = array_keys($workflowObjectData['workflowObject']->state ?? []);
+        $chavesEstadoAtual = array_values($workflowObjectData['workflowObject']->current_places ?? []);
         $descricoesEstadoAtual = collect($chavesEstadoAtual)
             ->map(function ($chaveEstado) use ($lugares) {
                 return $lugares[$chaveEstado]['description'] ?? $chaveEstado;
