@@ -2,11 +2,14 @@
 
 namespace Uspdev\Workflow\Http\Controllers;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Workflow;
+use Uspdev\Workflow\Models\WorkflowDefinition;
 
 class WorkflowController extends Controller
 {
@@ -122,15 +125,14 @@ class WorkflowController extends Controller
      * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
      * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
      * @param mixed $definitionName
-     * @return \Illuminate\Contracts\View\View
+     * @return RedirectResponse
      */
-    public function createObject($definitionName)
+    public function createObject(string $definitionName)
     {
-        $workflowObjectData = Workflow::criarWorkflowObject($definitionName);
-        $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
-        $workflowObjectData['orientacaoUsuario'] = [];
+        $model = new WorkflowDefinition();
 
-        return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
+        $workflowObject = Workflow::start($definitionName, $model);
+        return redirect()->route('workflows.showObject', ['id' => $workflowObject->id]);
     }
 
     /**
@@ -176,7 +178,8 @@ class WorkflowController extends Controller
      */
     public function showObject($id)
     {
-        $workflowObjectData = Workflow::obterDadosDoObjeto($id);
+        
+        $workflowObjectData = WorkflowObject::obterDadosDoObjeto($id);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
 
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
@@ -289,7 +292,7 @@ class WorkflowController extends Controller
     {
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
         // Obter as chaves dos estados atuais do objeto e mapear para suas descrições
-        $chavesEstadoAtual = array_keys($workflowObjectData['workflowObject']->state ?? []);
+        $chavesEstadoAtual = array_values($workflowObjectData['workflowObject']->current_places ?? []);
         $descricoesEstadoAtual = collect($chavesEstadoAtual)
             ->map(function ($chaveEstado) use ($lugares) {
                 return $lugares[$chaveEstado]['description'] ?? $chaveEstado;

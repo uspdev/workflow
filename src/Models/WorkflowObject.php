@@ -15,6 +15,8 @@ use Uspdev\Forms\Form;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
+use Uspdev\Workflow\Workflow;
+use Gate;
 
 class WorkflowObject extends Model
 {
@@ -31,6 +33,141 @@ class WorkflowObject extends Model
         'variables' => 'array',
     ];
 
+    private function isTransitionBlocked(TransitionDefinition $transition)
+    {
+        if(is_array($transition->from))
+        {
+            foreach($transition->from as $place)   
+            {
+                if(!isset($this->current_places[$place]) || $this->current_places[$place] != 1)
+                {
+                    return true;
+                }
+            }
+        }
+        else if(!in_array($transition->from, $this->current_places))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     *  Retorna dados relevantes referentes um objeto de workflow
+     *  Com o id correspondente ao passado de parâmetro na chamada do método
+     * 
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  -- 'workflowObject' - Instância de 'WorkflowObject';
+     *  -- 'workflowDefinition' - OInstância da 'WorkflowDefinition' atrelada ao WorkflowObject;
+     *  -- 'workflowsTransitions' - Array de transições com as chaves 'enabled', 'all' e 'currentState';
+     *      --- essas chaves contém, respectivamente, as transições habilitadas para o objeto, todas as          transições e o estado ('place') atual
+     * 
+     *  -- 'formHtml' - HMTL formatado do formulário relacionado ao estado/place atual do objeto;
+     *  -- 'title' - Título da definição;
+     *  -- 'activity' - Array de registro de atividades para aquele objeto;
+     *  -- 'formSubmissions' - Array de submissões de formulários para aquele objeto;
+     * 
+     * @return Array $workflowObjectData
+     */
+    public static function obterDadosDoObjeto(int $object_id)
+    {
+        $workflowObject = WorkflowObject::find($object_id)->firstOrFail();
+        $workflowDefinition = WorkflowDefinition::where('id', $workflowObject->workflow_definition_id)->firstOrFail();
+        $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
+
+        $workflowsTransitions['enabled'] =  Workflow::obterTransitionsHabilitadas($workflowInstance, $workflowObject);
+        $workflowsTransitions['all'] =  Workflow::obterNomeDasTransitions($workflowInstance);
+        $workflowsTransitions['currentState'] =  $workflowObject->current_places;
+        $workflowsTransitions['allowed'] = [];
+        $form = new Form(['key' => $workflowObject->id]);
+
+        $forms = [];
+        
+        foreach($workflowsTransitions['enabled'] as $enabledTransition){
+            if (isset($workflowDefinition->definition['transitions'][$enabledTransition]['forms'])) {
+                foreach($workflowDefinition->definition['transitions'][$enabledTransition]['forms'] as $formName){
+
+                    $formHtml = $form->generateHtml($formName);
+                    $formHtml = str_replace("workflowDefinitionName", $workflowDefinition->name, $formHtml);
+                    $statesString = '';
+                    foreach ($workflowObject->current_place as $state => $value) {
+                        $statesString .= $state;
+                        $statesString .= ', ';
+                    }
+                    $statesString = \Illuminate\Support\Str::beforeLast($statesString, ', ');
+                    $formHtml = str_replace("place_name", $statesString, $formHtml);
+                    $formHtml = str_replace("transition_name", $enabledTransition, $formHtml);
+
+                    $formData['transition'] =  $enabledTransition;
+                    $formData['html'] =  $formHtml;
+                    $forms[] = $formData;
+                }
+            }
+        }
+
+        $title = $workflowDefinition->definition['name'];
+        $activities = Workflow::obterAtividades($workflowObject->id);
+        $form = new Form(['key' => $workflowObject->id]);
+        $formSubmissions = $form->listSubmission();
+        if (!Gate::allows('admin')) {
+            $formSubmissions = $formSubmissions->filter(function ($submission) use ($workflowObject, $workflowDefinition) {
+                $transition = $submission['data']['transition'];
+                $to = $workflowDefinition->definition['transitions'][$transition]['tos'];
+                $initial = $workflowDefinition->definition['initial_places'];
+
+                $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
+                $fakeWorkflowObject = new \stdClass();
+                
+                /**
+                 * Caso o destino da transition não esteja no formato [chave => valor],
+                 * a formata desta maneira.
+                 * 
+                 * Ainda, caso o destino da transition seja um vetor mas, da forma [nomePlace => nomePlace],
+                 * atribui ao vetor '$toWithWeights' os 'nomePlace' e o valor 1, de tal forma que:
+                 * 'toWithWeights' == [nomePlace1 => 1, nomePlace2 => 1, ...].
+                 */
+                if (!is_array($to)) {
+                    $to = [$to => 1];
+                } else {
+                    if (array_values($to) === $to) {
+                        $toWithWeights = [];
+                        foreach ($to as $place) {
+                            $toWithWeights[$place] = 1;
+                        }
+                        $to = $toWithWeights;
+                    }
+                }
+
+                $fakeWorkflowObject->currentState = $to;
+                $enabledTransitions =  Workflow::obterTransitionsHabilitadas($workflowInstance,$workflowObject);
+                if (empty($enabledTransitions)) {
+                    return true;
+                }
+
+                // Verifica se a submissão tem um ou mais places a que se refere
+                $submission_place_arr = array_map('trim',explode(',',$submission['data']['place']));
+                if(count($submission_place_arr) >= 2)
+                {
+                    // Caso ao menos um dos places seja igual ao atual, permite ao usuário ver a submissão de formulário
+                    $curr_places = array_keys($workflowObject->current_places);
+                    $intersection = array_intersect($submission_place_arr,$curr_places);
+                }
+
+                return $submission['data']['place'] == $workflowObject->current_places || $workflowObject->current_places == $to || $submission['data']['place'] == $initial || !empty($intersection);
+            });
+        }        
+
+        $workflowObjectData['workflowObject'] = $workflowObject;
+        $workflowObjectData['workflowDefinition'] = $workflowDefinition;
+        $workflowObjectData['workflowsTransitions'] = $workflowsTransitions;
+        $workflowObjectData['forms'] = $forms;
+        $workflowObjectData['name'] = $title;
+        $workflowObjectData['activities'] = $activities;
+        $workflowObjectData['formSubmissions'] = collect($formSubmissions);
+        // dd($workflowObjectData);
+        return $workflowObjectData;
+    }
+
     /**
      * Aplica uma transição no objeto
      *
@@ -44,7 +181,9 @@ class WorkflowObject extends Model
      */
     public function apply(string $transitionName, array $inputData, ?User $user = null): bool
     {
-        $transition = $this->workflowDefinition->transition($transitionName);
+        /** @var WorkflowDefinition */
+        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
+        $transition = $workflowDefinition->transition($transitionName);
         if (!$transition) {
             throw new TransitionNotAllowedException("A transição '{$transitionName}' não existe neste workflow.");
         }
@@ -59,6 +198,9 @@ class WorkflowObject extends Model
                 //todo: precisa validar
                 // handleSubmission deve lançar exception se validação falhar
                 $form = $transition->form()->handleSubmission($inputData);
+                if(is_array($form) && $form['status'] === 'error') {
+                    throw ValidationException::withMessages(['Submissão de formulário da transition é inválida.']);
+                }
             }
 
             if ($transition->bindings->isNotEmpty()) {
@@ -80,8 +222,8 @@ class WorkflowObject extends Model
 
             $this->save();
             $this->history()->create([
-                'transition' => $transitionName,
-                'from_place' => implode(',', $transition->from),
+                'transition_name' => $transitionName,
+                'from_places' => implode(',', $transition->from),
                 'to_places' => implode(',', $transition->to),
                 'user_id' => $user?->id,
                 'form_submission_id' => $form?->id,
@@ -271,10 +413,10 @@ class WorkflowObject extends Model
      *  - Caso 'state' seja nulo, retorna um array vazio;
      *  @return array
      */
-    // public function getCurrentState()
-    // {
-    //     return $this->state ?? [];
-    // }
+    public function getCurrentState()
+    {
+        return $this->state ?? [];
+    }
 
     /**
      *  Atualiza o campo 'state' do workflow
@@ -282,10 +424,10 @@ class WorkflowObject extends Model
      *  @param array $state
      *  @return void
      */
-    // public function setCurrentState($state)
-    // {
-    //     $this->state = $state;
-    // }
+    public function setCurrentState($state)
+    {
+        $this->state = $state;
+    }
 
     /**
      *  Relaciona o objeto de workflow à um usuário
@@ -323,7 +465,7 @@ class WorkflowObject extends Model
         $workflowObject = new WorkflowObject();
         $workflowObject->workflow_definition_id = $workflowDefinition->id;
         $workflowObject->object_type = get_class($model);
-        $workflowObject->object_id = $model->getKey();
+        $workflowObject->object_id = $model->id;
         $workflowObject->current_places = $workflowDefinition->definition['initial_places'] ?? [];
 
         $variables_arr = [];
