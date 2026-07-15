@@ -31,7 +31,7 @@ class WorkflowController extends Controller
      */
     public function storeDefinition(Request $request)
     {
-        Workflow::criarWorkflowDefinition($request);
+        WorkflowDefinition::storeDefinition($request);
 
         return redirect()->route('workflows.list-definitions')->with('success', 'Definition criada com sucesso.');
     }
@@ -42,7 +42,7 @@ class WorkflowController extends Controller
      */
     public function listDefinitions()
     {
-        $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
+        $workflowDefinitions = WorkflowDefinition::all();
 
         return view('uspdev-workflow::show.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
     }
@@ -74,14 +74,23 @@ class WorkflowController extends Controller
 
     /**
      * Remove a definição de workflow, com o nome referenciado como parâmetro, do banco de dados.
-     * @param mixed $definitionName
+     * @param string $definitionName
+     * @param int $version
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroyDefinition($definitionName)
+    public function destroyDefinition(string $definitionName, int $version)
     {
-        Workflow::deletarDefinicaodeWorkflow($definitionName);
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
 
-        return redirect()->route('workflows.list-definitions')->with('success', 'Definition apagada com sucesso.');
+        $status = '';
+        $message = '';
+
+        $deleted = $workflowDef->destroyDefinition();
+
+        if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
+        else {$status = 'danger'; $message = 'Impossível remover definition.';}
+
+        return redirect()->route('workflows.list-definitions')->with($status, $message);
     }
 
     /**
@@ -89,11 +98,11 @@ class WorkflowController extends Controller
      * @param mixed $definitionName
      * @return \Illuminate\Contracts\View\View
      */
-    public function editDefinition($definitionName)
+    public function editDefinition(string $definitionName, int $version)
     {
-        $workflow = Workflow::obterWorkflowDefinition($definitionName);
-
-        return view('uspdev-workflow::definition.edit', compact('workflow'));
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        
+        return view('uspdev-workflow::definition.edit', compact('workflowDef'));
     }
 
     /**
@@ -104,7 +113,7 @@ class WorkflowController extends Controller
      */
     public function updateDefinition(Request $request)
     {
-        Workflow::atualizarWorkflow($request);
+        WorkflowDefinition::storeDefinition($request);
 
         return redirect()->route('workflows.showDefinition', ['definition' => $request->name]);
     }

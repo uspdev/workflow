@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\File;
+use Illuminate\Http\Request;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
 use Uspdev\Workflow\DTO\WorkflowDefinitionData;
@@ -39,6 +40,79 @@ class WorkflowDefinition extends Model
         'status' => WorkflowStatus::class, // Transforma a string do banco no objeto Enum do PHP
         'published_at' => 'datetime',
     ];
+
+    private static function createDefinition(Request $request)
+    {
+        $workflowDefinition = new self();
+        $workflowDefinition->name = $request->input('name');
+        $workflowDefinition->description = $request->input('description');
+        $workflowDefinition->definition = json_decode($request->input('definition'), true);
+        $workflowDefinition->version = 1;
+        $workflowDefinition->changeStatusTo(WorkflowStatus::DRAFT);
+        $workflowDefinition->save();    
+    }
+
+    private static function updateDefinition(WorkflowDefinition $oldDefinition, Request $request)
+    {
+        $oldDefinition->changeStatusTo(WorkflowStatus::DRAFT);
+        $oldDefinition->save();
+        $newDef = new self();
+        $newDef->name = $request->input('name');
+        $newDef->description = $request->input('description');
+        $newDef->definition = json_decode($request->input('definition'), true);
+        $newDef->version = $oldDefinition->version + 1;
+        $newDef->changeStatusTo(WorkflowStatus::DRAFT);
+        $newDef->save();
+    }
+
+    public static function storeDefinition(Request $request)
+    {
+        $oldDefinitions = SELF::where('name', $request->input('name'))->get();
+        
+        if(empty($oldDefinitions->all())) 
+        {
+            SELF::createDefinition($request);
+        } 
+        else 
+        {
+            $oldDefinition = $oldDefinitions->where('version',$oldDefinitions->max('version'))->first();
+            SELF::updateDefinition($oldDefinition, $request);   
+        }
+    }
+
+    public function destroyDefinition(): bool
+    {
+        if($this->status == WorkflowStatus::ARCHIVED)
+        {
+            $this->delete();
+            return true;
+        }
+
+        return false;
+
+    }
+
+
+
+    private function changeStatusTo(WorkflowStatus $status)
+    {
+        $this->status = $status;
+        switch ($status) 
+        {
+            case WorkflowStatus::PUBLISHED:
+            {
+                $this->published_at = now();
+                break;
+            }
+                
+            // case WorkflowStatus::DRAFT:
+            // {}
+            // case WorkflowStatus::ARCHIVED:
+            // {}
+            default:
+                break;
+        };
+    }
 
     /**
      * Ele pega o array do banco ($this->definition) e o transforma

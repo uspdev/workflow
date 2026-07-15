@@ -444,17 +444,6 @@ class Workflow
     }
 
     /**
-     * Exclui uma WorkflowDefinition com o nome referenciado
-     * 
-     * @param String $definitionName
-     */
-    public static function deletarDefinicaodeWorkflow($definitionName)
-    {
-        $workflowDefinition = WorkflowDefinition::where('name', $definitionName)->firstOrFail();
-        $workflowDefinition->delete();
-    }
-
-    /**
      * Lista todos os WorkflowObjects criados pelo usuário passado pelo codpes
      * na chamada do método. Se não for passado parâmetro, será utilizado o codpes
      * do usuário autenticado no sistema
