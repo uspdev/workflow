@@ -19,7 +19,7 @@ class WorkflowBackupController extends Controller
     {
         $workflowDefinitions = WorkflowDefinition::all();
 
-        return view('uspdev-workflow::show.list-bckps', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'backup']);
+        return view('uspdev-workflow::definition.backups.list-bckps', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'backup']);
     }
 
     /**
@@ -116,7 +116,7 @@ class WorkflowBackupController extends Controller
             $time_data[$created_time] = $last_mod_time;
         }
 
-        return view('uspdev-workflow::show.list-def-bckps', ['workflowDefinition' => $workflowDefinition, 'time_data' => $time_data]);
+        return view('uspdev-workflow::definition.backups.list-def-bckps', ['workflowDefinition' => $workflowDefinition, 'time_data' => $time_data]);
     }
     
     /**

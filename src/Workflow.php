@@ -223,97 +223,6 @@ class Workflow
     }
 
     /**
-     *  Atualiza uma WorkflowDefinition com os dados passados como parâmetros pelo $request
-     *  Valida todos os dados antes de fazer a atualização da definição
-     * 
-     * @param String $request->name
-     * @param String $request->description
-     * @param Json $request->defintion
-     */
-    public static function atualizarWorkflow(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'description' => 'nullable|string',
-            'definition' => 'required|json',
-        ]);
-
-        if ($validator->fails()) {
-            return back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
-        $workflow = WorkflowDefinition::where('name', $request->name)->firstOrFail();
-        $workflow->description = $request->description;
-        $workflow->definition = json_decode($request->definition);
-        
-        $def = json_decode($request->definition, true);
-        if (isset($def['places'])) { // Verificar necessidade de excluir roles e permissions antigas
-            foreach ($def['places'] as $key => $value) {
-                $keyRole = key($value['role']);
-                $roleName = $value['role'][$keyRole] ?? $key;
-        
-                $role = Role::firstOrCreate(['name' => $roleName]);
-        
-                $permission = Permission::firstOrCreate(['name' => $key]);
-        
-                if (!$role->hasPermissionTo($permission)) {
-                    $role->givePermissionTo($permission);
-                }
-            }
-        }
-
-        $workflow->save();
-    }
-
-    /**
-     * Cria uma WorkflowDefinition com os dados passados como parâmetros pelo $request
-     * Valida todos os dados antes de fazer a criação da definição
-     * 
-     * @param String $request->name
-     * @param String $request->description
-     * @param Json $request->defintion
-     */
-    public static function criarWorkflowDefinition(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|unique:workflow_definitions,name',
-            'description' => 'nullable|string',
-            'definition' => 'required|json',
-        ]);
-
-        if ($validator->fails()) {
-            return back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
-        $def = json_decode($request->definition, true);
-        if (isset($def['places'])) {
-            foreach ($def['places'] as $key => $value) {
-                $keyRole = key($value['role']);
-                $roleName = $value['role'][$keyRole] ?? $key;
-        
-                $role = Role::firstOrCreate(['name' => $roleName]);
-        
-                $permission = Permission::firstOrCreate(['name' => $key]);
-        
-                if (!$role->hasPermissionTo($permission)) {
-                    $role->givePermissionTo($permission);
-                }
-            }
-        }
-        
-
-        WorkflowDefinition::create([
-            'name' => $request->name,
-            'description' => $request->description,
-            'definition' => $def,
-        ]);
-    }
-
-    /**
      * Cria um objeto com as mesmas propriedades de um WorkfloWObject 
      * baseado na definição passada como parâmetro por seu nome.
      * Contudo, não cria diretamente um WorkflowObject, pois isso envolveria a
@@ -661,7 +570,7 @@ class Workflow
      * Caso a versão não seja especificada, a versão publicada será retornada.
      * @param string $definitionName
      * @param int $version
-     * @return object|WorkflowDefinition|null
+     * @return WorkflowDefinition|null
      */
     public static function loadDefinition(string $definitionName, int $version = null): ?WorkflowDefinition
     {
