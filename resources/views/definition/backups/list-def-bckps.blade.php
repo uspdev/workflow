@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="card-body">
-      <div>@include('uspdev-workflow::show.partials.bckpgen-btn')</div>
+      <div>@include('uspdev-workflow::definition.backups.partials.bckpgen-btn')</div>
       <br>
       <table class="table table-bordered table-hover">
         <thead>
@@ -31,8 +31,8 @@
                 {{ str_replace('_',' - ',str_replace('-','/',$updt_time)) }}
               </td>
               <td class="d-flex justify-content-start align-item-centered">
-                @include('uspdev-workflow::show.partials.restore-btn')
-                @include('uspdev-workflow::show.partials.bckpremove-btn')
+                @include('uspdev-workflow::definition.backups.partials.restore-btn')
+                @include('uspdev-workflow::definition.backups.partials.bckpremove-btn')
               </td>
             </tr>
           @endforeach
@@ -41,6 +41,6 @@
     </div>
   </div>
   <div class="mt-2">
-    @includeWhen(count($time_data) > 0,'uspdev-workflow::show.partials.defbckpremoveall-btn')
+    @includeWhen(count($time_data) > 0,'uspdev-workflow::definition.backups.partials.defbckpremoveall-btn')
   </div>
 @endsection
