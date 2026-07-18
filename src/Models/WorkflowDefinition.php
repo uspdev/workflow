@@ -18,7 +18,7 @@ class WorkflowDefinition extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = ['name', 'version'];
+    protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';
 
@@ -50,6 +50,7 @@ class WorkflowDefinition extends Model
         $workflowDefinition->version = 1;
         $workflowDefinition->changeStatusTo(WorkflowStatus::DRAFT);
         $workflowDefinition->save();    
+        return $workflowDefinition->version;
     }
 
     private static function updateDefinition(WorkflowDefinition $oldDefinition, Request $request)
@@ -63,27 +64,32 @@ class WorkflowDefinition extends Model
         $newDef->version = $oldDefinition->version + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
         $newDef->save();
+
+        return $newDef->version;
     }
 
     public static function storeDefinition(Request $request)
     {
         $oldDefinitions = SELF::where('name', $request->input('name'))->get();
         
+        $version = 0;
         if(empty($oldDefinitions->all())) 
         {
-            SELF::createDefinition($request);
+            $version = SELF::createDefinition($request);
         } 
         else 
         {
             $oldDefinition = $oldDefinitions->where('version',$oldDefinitions->max('version'))->first();
-            SELF::updateDefinition($oldDefinition, $request);   
+            $version = SELF::updateDefinition($oldDefinition, $request);   
         }
+        return $version;
     }
 
     public function destroyDefinition(): bool
     {
-        if($this->status == WorkflowStatus::ARCHIVED)
+        if($this->status != WorkflowStatus::PUBLISHED)
         {
+
             $this->delete();
             return true;
         }
@@ -112,6 +118,12 @@ class WorkflowDefinition extends Model
             default:
                 break;
         };
+    }
+
+    public function publish()
+    {
+        $this->changeStatusTo(WorkflowStatus::PUBLISHED);
+        $this->save();
     }
 
     /**

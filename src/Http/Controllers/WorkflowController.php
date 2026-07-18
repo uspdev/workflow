@@ -44,7 +44,7 @@ class WorkflowController extends Controller
     {
         $workflowDefinitions = WorkflowDefinition::all();
 
-        return view('uspdev-workflow::show.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
+        return view('uspdev-workflow::definition.list-defs', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'index']);
     }
 
     /**
@@ -52,11 +52,11 @@ class WorkflowController extends Controller
      * @param string $definitionName
      * @return \Illuminate\Contracts\View\View
      */
-    public function showDefinition($definitionName)
+    public function showDefinition(string $definitionName, ?int $version = null)
     {
-        $workflowDefinitionData = Workflow::obterDadosDaDefinicao($definitionName);
+        $workflowDefinitionData = Workflow::obterDadosDaDefinicao($definitionName, $version);
 
-        return view('uspdev-workflow::show.show-def', compact('workflowDefinitionData'));
+        return view('uspdev-workflow::definition.show.show-def', compact('workflowDefinitionData'));
     }
 
     /**
@@ -81,12 +81,11 @@ class WorkflowController extends Controller
     public function destroyDefinition(string $definitionName, int $version)
     {
         $workflowDef = Workflow::loadDefinition($definitionName, $version);
-
+    
         $status = '';
         $message = '';
 
         $deleted = $workflowDef->destroyDefinition();
-
         if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
         else {$status = 'danger'; $message = 'Impossível remover definition.';}
 
@@ -113,9 +112,17 @@ class WorkflowController extends Controller
      */
     public function updateDefinition(Request $request)
     {
-        WorkflowDefinition::storeDefinition($request);
+        $new_ver = WorkflowDefinition::storeDefinition($request);
 
-        return redirect()->route('workflows.showDefinition', ['definition' => $request->name]);
+        return redirect()->route('workflows.showDefinition', ['definitionName' => $request->name, 'version' => $new_ver]);
+    }
+
+    public function publishDefinition(string $definitionName, int $version)
+    {
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef->publish();
+
+        return redirect()->back()->with('success','Definição publicada!');
     }
 
     /**

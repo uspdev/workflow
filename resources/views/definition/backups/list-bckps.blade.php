@@ -5,7 +5,7 @@
 
 @section('content')
 
-<div class="col-2">@include('uspdev-workflow::show.partials.tabs')</div>
+<div class="col-2">@include('uspdev-workflow::definition.partials.tabs')</div>
 <div class="card">
     <div class="card-header h4 card-header-sticky d-flex justify-content-between align-items-center">
       <div>
@@ -41,8 +41,8 @@
                 {{ $workflowDefinition->description }}
               </td>
               <td class="d-flex justify-content-start">
-                @include('uspdev-workflow::show.partials.bckpgen-btn')
-                @includeWhen($count > 0,'uspdev-workflow::show.partials.bckplist-btn')
+                @include('uspdev-workflow::definition.backups.partials.bckpgen-btn')
+                @includeWhen($count > 0,'uspdev-workflow::definition.backups.partials.bckplist-btn')
               </td>
             </tr>
           @endforeach
@@ -51,6 +51,6 @@
     </div>
   </div>
     <div class="mt-2">
-    @include('uspdev-workflow::show.partials.globalbckp-btn')
+    @include('uspdev-workflow::definition.backups.partials.globalbckp-btn')
     </div>
 @endsection

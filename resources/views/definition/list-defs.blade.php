@@ -1,11 +1,11 @@
-@extends('uspdev-forms::layouts.app')
+@extends('uspdev-workflow::layouts.app')
 
 @section('header')
-@endsection
+@endsection 
 
 @section('content')
 
-<div class="col-2">@include('uspdev-workflow::show.partials.tabs')</div>
+<div class="col-2">@include('uspdev-workflow::definition.partials.tabs')</div>
 <div class="card">
     <div class="card-header h4 card-header-sticky d-flex justify-content-between align-items-center">
       <div>
@@ -27,16 +27,17 @@
           @foreach ($workflowDefinitions as $workflowDefinition)
             <tr>
               <td>
-                <a href="{{ route('workflows.showDefinition',$workflowDefinition->name) }}">{{ $workflowDefinition->name }}</a>
+                <a href="{{ route('workflows.showDefinition',['definitionName' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}">{{ $workflowDefinition->name }}</a>
                 
               </td>
               <td>
                 {{ $workflowDefinition->description }}
               </td>
               <td class="d-flex justify-content-start">
-                @include('uspdev-workflow::show.partials.edit-btn')
-                <a href="{{ route("workflows.destroyDefinition", ['definition' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-danger">Remover</a>
-                <a href="{{ route("workflows.createObject", ['definition' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-success">Criar Objeto</a>
+                @include('uspdev-workflow::definition.partials.edit-btn')
+                @include('uspdev-workflow::definition.partials.remove-btn')
+                @include('uspdev-workflow::definition.partials.publish-btn')
+                <a href="{{ route("workflows.createObject", ['definitionName' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-success">Criar Objeto</a>
               </td>
             </tr>
           @endforeach
