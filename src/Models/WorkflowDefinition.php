@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
 use Uspdev\Workflow\DTO\WorkflowDefinitionData;
@@ -41,27 +43,51 @@ class WorkflowDefinition extends Model
         'published_at' => 'datetime',
     ];
 
-    private static function createDefinition(Request $request)
+    private function deployRoles()
     {
-        $workflowDefinition = new self();
-        $workflowDefinition->name = $request->input('name');
-        $workflowDefinition->description = $request->input('description');
-        $workflowDefinition->definition = json_decode($request->input('definition'), true);
-        $workflowDefinition->version = 1;
-        $workflowDefinition->changeStatusTo(WorkflowStatus::DRAFT);
-        $workflowDefinition->save();    
-        return $workflowDefinition->version;
+        $roles = $this->definition['roles'];
+
+        foreach($roles as $roleData)
+        {
+            /** @var Role */
+            $role = Role::firstOrCreate(['name' => $roleData['name']]);
+
+            /** @var Permission */
+            $permission = Permission::firstOrCreate(['name' => $roleData['name']]);
+
+            if(!$role->hasPermissionTo($permission))
+            {
+                $role->givePermissionTo($permission);
+            }
+        }
     }
 
-    private static function updateDefinition(WorkflowDefinition $oldDefinition, Request $request)
+    private function deleteRoles()
     {
-        $oldDefinition->changeStatusTo(WorkflowStatus::DRAFT);
-        $oldDefinition->save();
+        $roles = $this->definition['roles'];
+        foreach($roles as $roleData)
+        {
+            Role::where(['name' => $roleData['name']])->delete();
+            Permission::where(['name' => $roleData['name']])->delete();
+        }
+    }
+
+    /**
+     * Summary of getRelatedObjects
+     * @return \Illuminate\Database\Eloquent\Collection<int, WorkflowObject>
+     */
+    private function getRelatedObjects()
+    {
+        return WorkflowObject::where(['workflow_definition_id' => $this->id])->get();
+    }
+
+    private static function handleStore(Request $request, ?WorkflowDefinition $oldDefinition): int
+    {
         $newDef = new self();
         $newDef->name = $request->input('name');
         $newDef->description = $request->input('description');
         $newDef->definition = json_decode($request->input('definition'), true);
-        $newDef->version = $oldDefinition->version + 1;
+        $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
         $newDef->save();
 
@@ -72,26 +98,21 @@ class WorkflowDefinition extends Model
     {
         $oldDefinitions = SELF::where('name', $request->input('name'))->get();
         
-        $version = 0;
-        if(empty($oldDefinitions->all())) 
-        {
-            $version = SELF::createDefinition($request);
-        } 
-        else 
-        {
-            $oldDefinition = $oldDefinitions->where('version',$oldDefinitions->max('version'))->first();
-            $version = SELF::updateDefinition($oldDefinition, $request);   
-        }
-        return $version;
+        $oldDefinition = $oldDefinitions->where('version', $oldDefinitions->max('version'))->first();
+
+        return SELF::handleStore($request, $oldDefinition);
     }
 
     public function destroyDefinition(): bool
     {
-        if($this->status != WorkflowStatus::PUBLISHED)
+        if(true)
         {
-
-            $this->delete();
-            return true;
+            if($this->getRelatedObjects()->isEmpty())
+            {
+                $this->deleteRoles();
+                $this->delete();
+                return true;
+            }
         }
 
         return false;
@@ -123,6 +144,7 @@ class WorkflowDefinition extends Model
     public function publish()
     {
         $this->changeStatusTo(WorkflowStatus::PUBLISHED);
+        $this->deployRoles();
         $this->save();
     }
 
