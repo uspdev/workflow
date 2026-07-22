@@ -179,50 +179,6 @@ class Workflow
     }
 
     /**
-     *  Retorna dados relevantes referentes uma definição de workflow
-     *  Com o nome passado de parâmetro na chamada do método
-     * 
-     *  - Os dados são retornados em um array com as seguintes chaves:
-     *  - 'workflowDefinition' -> Instância de 'WorkflowDefinition', de nome '$definitionName'
-     *  - 'definitionName' -> Nome da definição
-     *  - 'path' - Caminho para onde o grafo da definição foi salvo
-     *  - 'formattedJson' -> Definição formatada em .json
-     *  - 'roles' - 'roles' exigidas pela definição
-     * 
-     * @param String $definitionName
-     * @return Array $workflowData
-     */
-    public static function obterDadosDaDefinicao(string $definitionName, int $version = null)
-    {
-        $workflowDefinition = SELF::loadDefinition($definitionName, $version);
-
-        $definitionData = $workflowDefinition->definition;
-        $workflowDefinition->generatePng();
-        $path = "storage/app/public/" . $definitionName . ".png";
-        $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        
-        $roles = [];
-        foreach($workflowDefinition->definition['places'] as $place){
-
-            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
-            $keyRole = key($place['role']);
-            // keyRole == Role_keyN
-            $role = $place['role'][$keyRole];
-            // role == roleN
-            $roles[$role] = $keyRole;
-            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
-        }
-
-        $workflowData['workflowDefinition'] = $workflowDefinition;
-        $workflowData['definitionName'] = $definitionName;
-        $workflowData['path'] = $path;
-        $workflowData['formattedJson'] = $formattedJson;
-        $workflowData['roles'] = array_unique($roles);
-
-        return $workflowData;
-    }
-
-    /**
      * Cria um objeto com as mesmas propriedades de um WorkfloWObject 
      * baseado na definição passada como parâmetro por seu nome.
      * Contudo, não cria diretamente um WorkflowObject, pois isso envolveria a

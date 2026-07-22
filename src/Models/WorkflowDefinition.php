@@ -2,6 +2,7 @@
 
 namespace Uspdev\Workflow\Models;
 
+use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -123,12 +124,14 @@ class WorkflowDefinition extends Model
 
     private function changeStatusTo(WorkflowStatus $status)
     {
+        if($this->status == $status){return;}
         $this->status = $status;
         switch ($status) 
         {
             case WorkflowStatus::PUBLISHED:
             {
                 $this->published_at = now();
+                $this->deployRoles();
                 break;
             }
                 
@@ -139,13 +142,35 @@ class WorkflowDefinition extends Model
             default:
                 break;
         };
+        $this->save();
     }
 
     public function publish()
     {
-        $this->changeStatusTo(WorkflowStatus::PUBLISHED);
-        $this->deployRoles();
-        $this->save();
+        DB::transaction(function () {
+
+            $this->changeStatusTo(WorkflowStatus::PUBLISHED);
+    
+            $allVersions = SELF::where('name',$this->name)->get();
+            foreach($allVersions as $otherVersion)
+            {
+                if(($otherVersion->status == WorkflowStatus::PUBLISHED) && $otherVersion->id != $this->id)
+                {
+                    $otherVersion->changeStatusTo(WorkflowStatus::DRAFT);
+                }
+            }
+        });
+        
+    }
+
+    public function draft()
+    {
+        $this->changeStatusTo(WorkflowStatus::DRAFT);
+    }
+
+    public function archive()
+    {
+        $this->changeStatusTo(WorkflowStatus::ARCHIVED);
     }
 
     /**
@@ -242,7 +267,8 @@ class WorkflowDefinition extends Model
         $initialPlaces = is_array($definition['initial_places']) ? $definition['initial_places'] : [$definition['initial_places']];
         $vertices = [];
 
-        foreach ($definition['places'] as $placeName => $place) {
+        foreach ($definition['places'] as $place) {
+            $placeName = $place['name'];
             if (is_numeric($placeName)) {
                 $placeName = $place;
             }
@@ -361,5 +387,52 @@ class WorkflowDefinition extends Model
             }
             throw $e;
         }
+    }
+
+    /**
+     *  Retorna dados relevantes referentes uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
+     * 
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  - 'workflowDefinition' -> Instância de 'WorkflowDefinition', de nome '$definitionName'
+     *  - 'definitionName' -> Nome da definição
+     *  - 'path' - Caminho para onde o grafo da definição foi salvo
+     *  - 'formattedJson' -> Definição formatada em .json
+     *  - 'roles' - 'roles' exigidas pela definição
+     * 
+     * @param string $definitionName
+     * @param int $version
+     * @return array
+     */
+    public static function obterDadosDaDefinicao(string $definitionName, int $version): array
+    {
+        /** @var WorkflowDefinition */
+        $workflowDefinition = SELF::where(['name' => $definitionName, 'version' => $version])->firstOrFail();
+
+        $definitionData = $workflowDefinition->definition;
+        $workflowDefinition->generatePng();
+        $path = "storage/app/public/" . $definitionName . ".png";
+        $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+        $roles = [];
+        foreach($workflowDefinition->definition['places'] as $place){
+
+            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
+            $keyRole = key($place['roles']);
+            // keyRole == Role_keyN
+            $role = $place['roles'][$keyRole];
+            // role == roleN
+            $roles[$role] = $keyRole;
+            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
+        }
+
+        $workflowData['workflowDefinition'] = $workflowDefinition;
+        $workflowData['definitionName'] = $definitionName;
+        $workflowData['path'] = $path;
+        $workflowData['formattedJson'] = $formattedJson;
+        $workflowData['roles'] = array_unique($roles);
+        $workflowData['version'] = $workflowDefinition->version;
+
+        return $workflowData;
     }
 }
