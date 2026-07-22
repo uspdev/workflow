@@ -49,7 +49,8 @@
               <td class="d-flex justify-content-start">
                 @include('uspdev-workflow::definition.partials.edit-btn')
                 @include('uspdev-workflow::definition.partials.remove-btn')
-                @include('uspdev-workflow::definition.partials.publish-btn')
+                @includeWhen($workflowDefinition->status->value != 'published', 'uspdev-workflow::definition.partials.publish-btn')
+                @includeWhen($workflowDefinition->status->value === 'published', 'uspdev-workflow::definition.partials.draft-btn')
                 <a href="{{ route("workflows.createObject", ['definitionName' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-success">Criar Objeto</a>
               </td>
             </tr>
