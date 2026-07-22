@@ -16,6 +16,7 @@ Route::group(['prefix' => config('uspdev-workflow.prefix'), 'middleware' => ['we
     Route::post('/updatedefinition/', [WorkflowController::class, 'updateDefinition'])->name('workflows.updateDefinition');
     Route::get('/exportdefinition/{definitionName}',[WorkflowController::class,'exportDefinition'])->name('workflows.exportDefinition');
     Route::get('/definition/publish/{definitionName}/{version}',[WorkflowController::class,'publishDefinition'])->name('workflows.publishDefinition');
+    Route::get('/definition/draft/{definitionName}/{version}',[WorkflowController::class,'draftDefinition'])->name('workflows.draftDefinition');
 
     Route::get('/viewcreateobject', [WorkflowController::class, 'viewCreateObject'])->name('workflows.viewCreateObject');
     Route::get('/createobject/{definitionName}/{version}', [WorkflowController::class, 'createObject'])->name('workflows.createObject');
