@@ -20,6 +20,7 @@
           <tr>
             <th>Nome</th>
             <th>Descrição</th>
+            <th>Status</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -33,10 +34,23 @@
               <td>
                 {{ $workflowDefinition->description }}
               </td>
+              <td>
+                @switch($workflowDefinition->status->value)
+                  @case('published')
+                    <span class="badge-success">Publicado</span>
+                    @break
+                  @case('draft')
+                    <span class="badge-warning">Draft</span>
+                  @break
+                  @default
+                    <span class="badge-danger">Arquivado</span>
+                @endswitch
+              </td>
               <td class="d-flex justify-content-start">
                 @include('uspdev-workflow::definition.partials.edit-btn')
                 @include('uspdev-workflow::definition.partials.remove-btn')
-                @include('uspdev-workflow::definition.partials.publish-btn')
+                @includeWhen($workflowDefinition->status->value != 'published', 'uspdev-workflow::definition.partials.publish-btn')
+                @includeWhen($workflowDefinition->status->value === 'published', 'uspdev-workflow::definition.partials.draft-btn')
                 <a href="{{ route("workflows.createObject", ['definitionName' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}" class="btn btn-sm btn-success">Criar Objeto</a>
               </td>
             </tr>

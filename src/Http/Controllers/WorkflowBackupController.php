@@ -38,8 +38,8 @@ class WorkflowBackupController extends Controller
             mkdir($file_dir,0777);
         }
 
-        // Forma o caominho do arquivo na forma defname@horariocriado.json
-        $file_path = $file_dir . '/' . $workflowDefinition['name'] . '@' . now()->format('d-m-Y_H:i:s') . '.json';
+        // Forma o caminho do arquivo na forma defname@horariocriado.json
+        $file_path = $file_dir . '/' . $workflowDefinition->name . $workflowDefinition->version . '@' . now()->format('d-m-Y_H:i:s') . '.json';
 
         // Cria o arquivo para escrita
         try

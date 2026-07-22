@@ -474,6 +474,7 @@ class WorkflowObject extends Model
         {
             if(str_starts_with($role['name'],'@'))
             {
+                
                 $role_name = str_replace('@','',$role['name']);
                 $variables_arr[$role_name] = '';
             }

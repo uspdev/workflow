@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Uspdev\Workflow\Enums\WorkflowStatus;
 use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Workflow;
 use Uspdev\Workflow\Models\WorkflowDefinition;
@@ -54,7 +55,7 @@ class WorkflowController extends Controller
      */
     public function showDefinition(string $definitionName, ?int $version = null)
     {
-        $workflowDefinitionData = Workflow::obterDadosDaDefinicao($definitionName, $version);
+        $workflowDefinitionData = WorkflowDefinition::obterDadosDaDefinicao($definitionName, $version);
 
         return view('uspdev-workflow::definition.show.show-def', compact('workflowDefinitionData'));
     }
@@ -123,6 +124,14 @@ class WorkflowController extends Controller
         $workflowDef->publish();
 
         return redirect()->back()->with('success','Definição publicada!');
+    }
+
+    public function draftDefinition(string $definitionName, int $version)
+    {
+        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef->draft();
+
+        return redirect()->back()->with('warning','Definição posta em rascunho!');
     }
 
     /**

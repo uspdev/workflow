@@ -2,6 +2,7 @@
 
 namespace Uspdev\Workflow\Models;
 
+use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
 use Uspdev\Workflow\DTO\WorkflowDefinitionData;
@@ -41,27 +44,51 @@ class WorkflowDefinition extends Model
         'published_at' => 'datetime',
     ];
 
-    private static function createDefinition(Request $request)
+    private function deployRoles()
     {
-        $workflowDefinition = new self();
-        $workflowDefinition->name = $request->input('name');
-        $workflowDefinition->description = $request->input('description');
-        $workflowDefinition->definition = json_decode($request->input('definition'), true);
-        $workflowDefinition->version = 1;
-        $workflowDefinition->changeStatusTo(WorkflowStatus::DRAFT);
-        $workflowDefinition->save();    
-        return $workflowDefinition->version;
+        $roles = $this->definition['roles'];
+
+        foreach($roles as $roleData)
+        {
+            /** @var Role */
+            $role = Role::firstOrCreate(['name' => $roleData['name']]);
+
+            /** @var Permission */
+            $permission = Permission::firstOrCreate(['name' => $roleData['name']]);
+
+            if(!$role->hasPermissionTo($permission))
+            {
+                $role->givePermissionTo($permission);
+            }
+        }
     }
 
-    private static function updateDefinition(WorkflowDefinition $oldDefinition, Request $request)
+    private function deleteRoles()
     {
-        $oldDefinition->changeStatusTo(WorkflowStatus::DRAFT);
-        $oldDefinition->save();
+        $roles = $this->definition['roles'];
+        foreach($roles as $roleData)
+        {
+            Role::where(['name' => $roleData['name']])->delete();
+            Permission::where(['name' => $roleData['name']])->delete();
+        }
+    }
+
+    /**
+     * Summary of getRelatedObjects
+     * @return \Illuminate\Database\Eloquent\Collection<int, WorkflowObject>
+     */
+    private function getRelatedObjects()
+    {
+        return WorkflowObject::where(['workflow_definition_id' => $this->id])->get();
+    }
+
+    private static function handleStore(Request $request, ?WorkflowDefinition $oldDefinition): int
+    {
         $newDef = new self();
         $newDef->name = $request->input('name');
         $newDef->description = $request->input('description');
         $newDef->definition = json_decode($request->input('definition'), true);
-        $newDef->version = $oldDefinition->version + 1;
+        $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
         $newDef->save();
 
@@ -72,26 +99,21 @@ class WorkflowDefinition extends Model
     {
         $oldDefinitions = SELF::where('name', $request->input('name'))->get();
         
-        $version = 0;
-        if(empty($oldDefinitions->all())) 
-        {
-            $version = SELF::createDefinition($request);
-        } 
-        else 
-        {
-            $oldDefinition = $oldDefinitions->where('version',$oldDefinitions->max('version'))->first();
-            $version = SELF::updateDefinition($oldDefinition, $request);   
-        }
-        return $version;
+        $oldDefinition = $oldDefinitions->where('version', $oldDefinitions->max('version'))->first();
+
+        return SELF::handleStore($request, $oldDefinition);
     }
 
     public function destroyDefinition(): bool
     {
-        if($this->status != WorkflowStatus::PUBLISHED)
+        if(true)
         {
-
-            $this->delete();
-            return true;
+            if($this->getRelatedObjects()->isEmpty())
+            {
+                $this->deleteRoles();
+                $this->delete();
+                return true;
+            }
         }
 
         return false;
@@ -102,12 +124,14 @@ class WorkflowDefinition extends Model
 
     private function changeStatusTo(WorkflowStatus $status)
     {
+        if($this->status == $status){return;}
         $this->status = $status;
         switch ($status) 
         {
             case WorkflowStatus::PUBLISHED:
             {
                 $this->published_at = now();
+                $this->deployRoles();
                 break;
             }
                 
@@ -118,12 +142,35 @@ class WorkflowDefinition extends Model
             default:
                 break;
         };
+        $this->save();
     }
 
     public function publish()
     {
-        $this->changeStatusTo(WorkflowStatus::PUBLISHED);
-        $this->save();
+        DB::transaction(function () {
+
+            $this->changeStatusTo(WorkflowStatus::PUBLISHED);
+    
+            $allVersions = SELF::where('name',$this->name)->get();
+            foreach($allVersions as $otherVersion)
+            {
+                if(($otherVersion->status == WorkflowStatus::PUBLISHED) && $otherVersion->id != $this->id)
+                {
+                    $otherVersion->changeStatusTo(WorkflowStatus::DRAFT);
+                }
+            }
+        });
+        
+    }
+
+    public function draft()
+    {
+        $this->changeStatusTo(WorkflowStatus::DRAFT);
+    }
+
+    public function archive()
+    {
+        $this->changeStatusTo(WorkflowStatus::ARCHIVED);
     }
 
     /**
@@ -220,7 +267,8 @@ class WorkflowDefinition extends Model
         $initialPlaces = is_array($definition['initial_places']) ? $definition['initial_places'] : [$definition['initial_places']];
         $vertices = [];
 
-        foreach ($definition['places'] as $placeName => $place) {
+        foreach ($definition['places'] as $place) {
+            $placeName = $place['name'];
             if (is_numeric($placeName)) {
                 $placeName = $place;
             }
@@ -339,5 +387,52 @@ class WorkflowDefinition extends Model
             }
             throw $e;
         }
+    }
+
+    /**
+     *  Retorna dados relevantes referentes uma definição de workflow
+     *  Com o nome passado de parâmetro na chamada do método
+     * 
+     *  - Os dados são retornados em um array com as seguintes chaves:
+     *  - 'workflowDefinition' -> Instância de 'WorkflowDefinition', de nome '$definitionName'
+     *  - 'definitionName' -> Nome da definição
+     *  - 'path' - Caminho para onde o grafo da definição foi salvo
+     *  - 'formattedJson' -> Definição formatada em .json
+     *  - 'roles' - 'roles' exigidas pela definição
+     * 
+     * @param string $definitionName
+     * @param int $version
+     * @return array
+     */
+    public static function obterDadosDaDefinicao(string $definitionName, int $version): array
+    {
+        /** @var WorkflowDefinition */
+        $workflowDefinition = SELF::where(['name' => $definitionName, 'version' => $version])->firstOrFail();
+
+        $definitionData = $workflowDefinition->definition;
+        $workflowDefinition->generatePng();
+        $path = "storage/app/public/" . $definitionName . ".png";
+        $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+        $roles = [];
+        foreach($workflowDefinition->definition['places'] as $place){
+
+            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
+            $keyRole = key($place['roles']);
+            // keyRole == Role_keyN
+            $role = $place['roles'][$keyRole];
+            // role == roleN
+            $roles[$role] = $keyRole;
+            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
+        }
+
+        $workflowData['workflowDefinition'] = $workflowDefinition;
+        $workflowData['definitionName'] = $definitionName;
+        $workflowData['path'] = $path;
+        $workflowData['formattedJson'] = $formattedJson;
+        $workflowData['roles'] = array_unique($roles);
+        $workflowData['version'] = $workflowDefinition->version;
+
+        return $workflowData;
     }
 }
