@@ -521,28 +521,6 @@ class Workflow
     }
 
     /**
-     * Instancia uma definição de workflow, identificada pelo nome e pela versão.
-     * Retorna null caso a definição desejada não seja encontrada.
-     * Caso a versão não seja especificada, a versão publicada será retornada.
-     * @param string $definitionName
-     * @param int $version
-     * @return WorkflowDefinition|null
-     */
-    public static function loadDefinition(string $definitionName, int $version = null): ?WorkflowDefinition
-    {
-        if(isset($version)) 
-        {
-            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)
-                ->where('version', $version)->first();
-        } 
-        else 
-        {
-            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)->where('status', 'published')->first();
-        }
-        return $workflowDefinition;
-    }
-
-    /**
      * Recupera o workflow atrelado àquele objeto.
      * Busca pelo tipo do objeto e pelo id do mesmo, retornando null caso não encontre.
      * @param Model $model
