@@ -5,6 +5,7 @@ namespace Uspdev\Workflow\Models;
 use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -44,6 +45,10 @@ class WorkflowDefinition extends Model
         'published_at' => 'datetime',
     ];
 
+    /**
+     * Persiste as roles da definião e dá as permissões ncessárias para elas.
+     * @return void
+     */
     private function deployRoles()
     {
         $roles = $this->definition['roles'];
@@ -63,7 +68,11 @@ class WorkflowDefinition extends Model
         }
     }
 
-    private function deleteRoles()
+    /**
+     * Remove as roles da definição.
+     * @return void
+     */
+    private function deleteRoles(): void
     {
         $roles = $this->definition['roles'];
         foreach($roles as $roleData)
@@ -74,15 +83,15 @@ class WorkflowDefinition extends Model
     }
 
     /**
-     * Summary of getRelatedObjects
-     * @return \Illuminate\Database\Eloquent\Collection<int, WorkflowObject>
+     * Retorna todos os objetos de workflow relacionados à definição.
+     * @return Collection<int, WorkflowObject>
      */
-    private function getRelatedObjects()
+    public function getRelatedObjects()
     {
         return WorkflowObject::where(['workflow_definition_id' => $this->id])->get();
     }
 
-    private static function handleStore(Request $request, ?WorkflowDefinition $oldDefinition): int
+    private static function handleStore(Request $request, ?WorkflowDefinition $oldDefinition): WorkflowDefinition
     {
         $newDef = new self();
         $newDef->name = $request->input('name');
@@ -92,10 +101,15 @@ class WorkflowDefinition extends Model
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
         $newDef->save();
 
-        return $newDef->version;
+        return $newDef;
     }
 
-    public static function storeDefinition(Request $request)
+    /**
+     * Persiste a definição de workflow, vinda através de requisição, no banco de dados, retornando a instância da mesma.
+     * @param Request $request
+     * @return WorkflowDefinition
+     */
+    public static function storeDefinition(Request $request): WorkflowDefinition
     {
         $oldDefinitions = SELF::where('name', $request->input('name'))->get();
         
@@ -104,9 +118,14 @@ class WorkflowDefinition extends Model
         return SELF::handleStore($request, $oldDefinition);
     }
 
+    /**
+     * Remove uma definição de workflow, e suas roles, desde que esta não esteja publicada
+     * e não tenha nenhum objeto de workflow relacionado a si ativo.
+     * @return bool
+     */
     public function destroyDefinition(): bool
     {
-        if(true)
+        if($this->status != WorkflowStatus::PUBLISHED)
         {
             if($this->getRelatedObjects()->isEmpty())
             {
@@ -117,14 +136,19 @@ class WorkflowDefinition extends Model
         }
 
         return false;
-
     }
 
 
-
-    private function changeStatusTo(WorkflowStatus $status)
+    /**
+     * Modifica o status de uma definição para o referenciado na função.
+     * Caso o estado atual da função já seja o desejado, apenas retorna da função sem mais modificações
+     * @param WorkflowStatus $status
+     * @return void
+     */
+    private function changeStatusTo(WorkflowStatus $status): void
     {
         if($this->status == $status){return;}
+
         $this->status = $status;
         switch ($status) 
         {
@@ -145,30 +169,41 @@ class WorkflowDefinition extends Model
         $this->save();
     }
 
-    public function publish()
+    /**
+     * Publica a definição, tornando todas as outras versões da mesma definição como DRAFT
+     * @return void
+     */
+    public function publish(): void
     {
         DB::transaction(function () {
+            
+            /** @var WorkflowDefinition */
+            $oldPublished = SELF::where(['name' => $this->name, 'status' => WorkflowStatus::PUBLISHED])->first();
+
+            if(isset($oldPublished))
+            {
+                $oldPublished->changeStatusTo(WorkflowStatus::DRAFT);
+            }
 
             $this->changeStatusTo(WorkflowStatus::PUBLISHED);
-    
-            $allVersions = SELF::where('name',$this->name)->get();
-            foreach($allVersions as $otherVersion)
-            {
-                if(($otherVersion->status == WorkflowStatus::PUBLISHED) && $otherVersion->id != $this->id)
-                {
-                    $otherVersion->changeStatusTo(WorkflowStatus::DRAFT);
-                }
-            }
         });
         
     }
 
-    public function draft()
+    /**
+     * Muda o status da defnição para Draft
+     * @return void
+     */
+    public function draft(): void
     {
         $this->changeStatusTo(WorkflowStatus::DRAFT);
     }
 
-    public function archive()
+    /**
+     * Muda o status da definição para Arquivada
+     * @return void
+     */
+    public function archive(): void
     {
         $this->changeStatusTo(WorkflowStatus::ARCHIVED);
     }
@@ -198,7 +233,26 @@ class WorkflowDefinition extends Model
     }
 
     /**
-     * retorna dados de uma transition
+     * Retorna todos os places da definição e seus dados.
+     * @return Collection<int, PlaceDefinition>
+     */
+    public function places(): Collection
+    {
+        $places = $this->definition['places'];
+        $placesColl = collect();
+
+        foreach($places as $place)
+        {
+            $placesColl->push($this->place($place['name']));
+        }
+
+        return $placesColl;
+    }
+
+    /**
+     * Retorna os dados da transition de nome especificado
+     * @param string $transitionName
+     * @return TransitionDefinition
      */
     public function transition(string $transitionName): TransitionDefinition
     {
@@ -215,13 +269,35 @@ class WorkflowDefinition extends Model
         return TransitionDefinition::fromArray($transition_data);
     }
 
-    public function transitionsFromPlace(string $placeName): array
+    /**
+     * Retorna todas as transitions da definição e seus dados
+     * @return Collection<int, TransitionDefinition>
+     */
+    public function transitions(): Collection
+    {
+        $transitions = $this->definition['transitions'];
+        $transitionsColl = collect();
+
+        foreach($transitions as $transition)
+        {
+            $transitionsColl->push($this->transition($transition['name']));
+        }
+
+        return $transitionsColl;
+    }
+
+    /**
+     * Retorna todas as transitions atreladas ao place especificado
+     * @param string $placeName
+     * @return Collection<int, TransitionDefinition>
+     */
+    public function transitionsFromPlace(string $placeName): Collection
     {
         $transitions = $this->definition['places'][$placeName]['transitions'] ?? [];
-        $availableTransitions = [];
+        $availableTransitions = collect();
         foreach($transitions as $transitionName)
         {
-            $availableTransitions[] = $this->transition($transitionName);
+            $availableTransitions->push($this->transition($transitionName));
         }
 
         return $availableTransitions;
@@ -229,20 +305,63 @@ class WorkflowDefinition extends Model
 
     /**
      * Lista todos os objetos de workflow que estão associados a esta definição.
-     * @return \Illuminate\Database\Eloquent\Collection<int, WorkflowObject>
+     * @return Collection<int, WorkflowObject>
      */
     public function listObjects()
     {
         return WorkflowObject::where('workflow_definition_id', $this->id)->get();
     }
 
+
+    /**
+     * Instancia uma definição de workflow, identificada pelo nome e pela versão.
+     * Retorna null caso a definição desejada não seja encontrada.
+     * Caso a versão não seja especificada, a versão publicada será retornada.
+     * @param string $definitionName
+     * @param int $version
+     * @return WorkflowDefinition|null
+     */
+    public static function loadDef(string $definitionName, int $version = null): ?WorkflowDefinition
+    {
+        if(isset($version)) 
+        {
+            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)
+                ->where('version', $version)->first();
+        } 
+        else 
+        {
+            $workflowDefinition = WorkflowDefinition::where('name', $definitionName)->where('status', 'published')->first();
+        }
+        return $workflowDefinition;
+    }
+    public static function createObject(string $definitionName, Model $model): WorkflowObject
+    {
+        $workflowDefinition = SELF::loadDef($definitionName);
+        $workflowObject = new WorkflowObject();
+        $workflowObject->workflow_definition_id = $workflowDefinition->id;
+        $workflowObject->object_type = get_class($model);
+        $workflowObject->object_id = $model->id;
+        $workflowObject->current_places = $workflowDefinition->definition['initial_places'] ?? [];
+
+        $variables_arr = [];
+
+        foreach($workflowDefinition->definition['roles'] as $role)
+        {
+            if(str_starts_with($role['name'],'@'))
+            {
+                
+                $role_name = str_replace('@','',$role['name']);
+                $variables_arr[$role_name] = '';
+            }
+        }
+
+        $workflowObject->variables = $variables_arr;
+        $workflowObject->save();
+
+        return $workflowObject;
+    }
+
     // **************************************
-
-
-
-
-
-
 
     /**
      *  Gera uma imagem '.png' que exibe um grafo contendo os
