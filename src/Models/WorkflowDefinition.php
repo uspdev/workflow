@@ -337,11 +337,6 @@ class WorkflowDefinition extends Model
     public static function createObject(string $definitionName, Model $model): WorkflowObject
     {
         $workflowDefinition = SELF::loadDef($definitionName);
-        $workflowObject = new WorkflowObject();
-        $workflowObject->workflow_definition_id = $workflowDefinition->id;
-        $workflowObject->object_type = get_class($model);
-        $workflowObject->object_id = $model->id;
-        $workflowObject->current_places = $workflowDefinition->definition['initial_places'] ?? [];
 
         $variables_arr = [];
 
@@ -355,8 +350,13 @@ class WorkflowDefinition extends Model
             }
         }
 
-        $workflowObject->variables = $variables_arr;
-        $workflowObject->save();
+        $workflowObject = WorkflowObject::create([
+            'workflow_definition_id' => $workflowDefinition->getKey(),
+            'object_type' => $model->getMorphClass(),
+            'object_id' => $model->getKey(),
+            'current_places' => $workflowDefinition->definition['initial_places'] ?? [],
+            'variables' => $variables_arr
+        ]);
 
         return $workflowObject;
     }

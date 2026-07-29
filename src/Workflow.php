@@ -7,18 +7,12 @@ use stdClass;
 use App\Models\User;
 use Uspdev\Forms\Form;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Forms\Models\FormSubmission;
-use Spatie\Activitylog\Models\Activity;
-use Spatie\Permission\Models\Permission;
-use Illuminate\Support\Facades\Validator;
 use Symfony\Component\Workflow\Definition;
 use Symfony\Component\Workflow\Transition;
-use Uspdev\Workflow\DTO\TransitionDefinition;
 use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
@@ -49,49 +43,6 @@ class Workflow
     }
 
     /**
-     *  Retorna os registros de atividade para um objeto
-     *  Com o id correspondente ao passado de parâmetro na chamada do método
-     * 
-     *  - Encontra a atividade relacionada ao workflow object com o id citado acima;
-     *  - Encontra a workflow definition relacionada ao objeto;
-     *  - Captura as propriedades da atividade;
-     *  - Verifica se o 'state' da atividade está ativo no 'place' atual do workflow object
-     *  - Encontra (Se possível) o causador da atividade
-     * 
-     *  - Formata toda a resposta e retona um array com os dados da atividade;
-     * 
-     *  @param int $id
-     *  @return Array
-     */
-    public static function obterAtividades(int $id)
-    {
-        
-        $atividades = Activity::where('subject_type', WorkflowObject::class)
-            ->where('subject_id', $id)
-            ->get();
-
-        $resultadoFormatado = $atividades->map(function ($atividade) {
-            $workflowObject = WorkflowObject::findOrFail($atividade->subject_id);
-            $workflowDefinition = WorkflowDefinition::where('id',$workflowObject->workflow_definition_id)->first();
-            $stateData = json_decode($atividade->properties, true);
-            $nomeBonito = $workflowDefinition->definition['places'][$stateData['state']] ?? $stateData['state'];
-            $user = $atividade->causer_id ? User::find($atividade->causer_id) : null;
-
-            return [
-                'id' => $atividade->id,
-                'description' => "Alterado para: " . ($nomeBonito['description'] ?? 'Descrição não disponível'),
-                'objectId' => $atividade->subject_id,
-                'user' => $user ? $user->name : 'Não definido',
-                'created_at' => \Carbon\Carbon::parse($atividade->created_at)->format('d/m/Y H:i'),
-                'updated_at' => \Carbon\Carbon::parse($atividade->updated_at)->format('d/m/Y H:i'),
-            ];
-        });
-
-        return $resultadoFormatado;
-    }
-
-
-    /**
      * Retorna as transições de uma instância de SymfonyWorkflow
      * Passada de parâmetro na chamada do método
      * 
@@ -120,28 +71,28 @@ class Workflow
      * @param WorkflowObject $workflowObject
      * @return Array
      */
-    public static function obterTransitionsHabilitadas(SymfonyWorkflow $workflowInstance, WorkflowObject $workflowObject)
-    {
-        $enabledTransitions = $workflowInstance->getEnabledTransitions($workflowObject);
-        $transitionNames = array_map(function ($transition) {
-            return $transition->getName();
-        }, $enabledTransitions);
+    // public static function obterTransitionsHabilitadas(SymfonyWorkflow $workflowInstance, WorkflowObject $workflowObject)
+    // {
+    //     $enabledTransitions = $workflowInstance->getEnabledTransitions($workflowObject);
+    //     $transitionNames = array_map(function ($transition) {
+    //         return $transition->getName();
+    //     }, $enabledTransitions);
 
-        /** @var WorkflowDefinition */
-        $workflowDefinition = WorkflowDefinition::where('id',$workflowObject->workflow_definition_id)->first();
+    //     /** @var WorkflowDefinition */
+    //     $workflowDefinition = WorkflowDefinition::where('id',$workflowObject->workflow_definition_id)->first();
 
-        if (!$workflowDefinition) 
-        {
-            return $transitionNames ?: [];
-        }
+    //     if (!$workflowDefinition) 
+    //     {
+    //         return $transitionNames ?: [];
+    //     }
 
-        $allowedTransitions = array_filter($transitionNames, function ($transitionName) use ($workflowObject,$workflowDefinition) {
-            $transition = $workflowDefinition->transition($transitionName);
-            return !$workflowObject->isTransitionBlocked($transition);
-        });
+    //     $allowedTransitions = array_filter($transitionNames, function ($transitionName) use ($workflowObject,$workflowDefinition) {
+    //         $transition = $workflowDefinition->transition($transitionName);
+    //         return !$workflowObject->isTransitionBlocked($transition);
+    //     });
 
-        return array_values($allowedTransitions) ?: [];
-    }
+    //     return array_values($allowedTransitions) ?: [];
+    // }
 
 
     /**
@@ -152,31 +103,31 @@ class Workflow
      * @param WorkflowDefinition $workflowDefinition
      * @return String HTML formatado
      */
-    public static function obterHtml(WorkflowObject $workflowObject, WorkflowDefinition $workflowDefinition)
-    {
-        $definitionData = $workflowDefinition->definition;
+    // public static function obterHtml(WorkflowObject $workflowObject, WorkflowDefinition $workflowDefinition)
+    // {
+    //     $definitionData = $workflowDefinition->definition;
 
-        $formHtml = '';
+    //     $formHtml = '';
 
-        $places = $workflowObject->current_places;
-        foreach($places as $place)
-        {
-            if(isset($definitionData['places'][$place]['transitions']))
-            {
-                foreach($definitionData['places'][$place]['transitions'] as $transitionName)
-                {
-                    $transition = $workflowDefinition->transition($transitionName);
-                    if(isset($transition->form))
-                    {
-                        $form = new Form();
-                        $formHtml = $form->generateHtml($transition->form);
-                    }
-                }
-            }
-        }
+    //     $places = $workflowObject->current_places;
+    //     foreach($places as $place)
+    //     {
+    //         if(isset($definitionData['places'][$place]['transitions']))
+    //         {
+    //             foreach($definitionData['places'][$place]['transitions'] as $transitionName)
+    //             {
+    //                 $transition = $workflowDefinition->transition($transitionName);
+    //                 if(isset($transition->form))
+    //                 {
+    //                     $form = new Form();
+    //                     $formHtml = $form->generateHtml($transition->form);
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        return $formHtml;
-    }
+    //     return $formHtml;
+    // }
 
     /**
      * Cria um objeto com as mesmas propriedades de um WorkfloWObject 
@@ -295,17 +246,6 @@ class Workflow
 
             return new SymfonyWorkflow($workflowDefinition, new MethodMarkingStore(false, 'currentState'));
         }
-    }
-
-    /**
-     * Exclui um WorkflowObject com o Id referenciado
-     * 
-     * @param Integer $workflowId
-     */
-    public static function deletarWorkflow($workflowId)
-    {
-        $workflowObject = WorkflowObject::findOrFail($workflowId);
-        $workflowObject->delete();
     }
 
     /**
@@ -462,7 +402,7 @@ class Workflow
         $workflowData = [];
 
         foreach ($workflowObjects as $workflowObject) {
-            $workflowDefinition = Workflow::obterWorkflowDefinition($workflowObject->workflow_definition_name);
+            $workflowDefinition = WorkflowDefinition::loadDefinition($workflowObject->workflow_definition_name);
             $workflowInstance = Workflow::criarSymfonyWorkflow($workflowDefinition);
             $enabledTransitions = $workflowInstance->getEnabledTransitions($workflowObject);
 
@@ -528,11 +468,7 @@ class Workflow
      */
     public static function find(Model $model): ?WorkflowObject
     {
-        $workflowObject = WorkflowObject::where('object_type', get_class($model))
-            ->where('object_id', $model->getKey())
-            ->first();
-
-        return $workflowObject;
+        return WorkflowObject::from($model);
     }
 
     /**
@@ -545,9 +481,7 @@ class Workflow
      */
     public static function start(string $definitionName, Model $model): ?WorkflowObject
     {
-
-        
-        $workflow_def = SELF::loadDefinition($definitionName);
+        $workflow_def = WorkflowDefinition::loadDefinition($definitionName);
         if(!isset($workflow_def,$model)) 
         {
             throw new \Exception("Workflow definition not found: $definitionName");
