@@ -36,6 +36,12 @@ class WorkflowObject extends Model
         'variables' => 'array',
     ];
 
+    /**
+     * Verifica se a transition referenciada está bloqueada ou não.
+     * 
+     * @param TransitionDefinition $transition
+     * @return bool
+     */
     private function isTransitionBlocked(TransitionDefinition $transition)
     {
         if(is_array($transition->from))
@@ -56,7 +62,9 @@ class WorkflowObject extends Model
     }
 
     /**
-     * Summary of buildEnabledForms
+     * Constrói os formulários para as transições disponíveis no estado atual do objeto de 
+     * workflow, retornando um array contendo o html do formulário e a transição associada.
+     * 
      * @return array<string|TransitionDefinition>
      */
     private function buildEnabledForms()
@@ -127,6 +135,13 @@ class WorkflowObject extends Model
         return $resultadoFormatado;
     }
 
+    /**
+     * Retorna as submissões de formulário que o usuário têm permissão para ver, a depender do 
+     * estado do objeto de workflow
+     * 
+     * @param Form $form
+     * @return Collection<int, TModel>|\Illuminate\Support\Collection<int, \stdClass>
+     */
     private function viewableSubmissions(Form $form)
     {
         $formSubmissions = $form->listSubmission();
@@ -295,7 +310,7 @@ class WorkflowObject extends Model
             ]);
         });
 
-        // todo: notifica quem precisar
+        // TODO -  notifica quem precisar
         // notifications está bugado
         // Passamos o grafo ($definitionData) para que o DTO consiga calcular as roles padrão dos 'tos'
         // $destinatarios = $transition->resolveNotificationDestinations($definitionData);
@@ -493,7 +508,7 @@ class WorkflowObject extends Model
     }
 
     /**
-     * Summary of from
+     * Retorna o objeto atrelado ao Model referenciado.
      * @param Model $model
      * @return object|WorkflowObject|null
      */
@@ -503,7 +518,7 @@ class WorkflowObject extends Model
     }
 
     /**
-     * Summary of currentPlaces
+     * Retorna os places atuais do workflow, como PlaceDefinition DTOs.
      * @return Collection<int, PlaceDefinition>
      */
     public function currentPlaces(): Collection
@@ -527,7 +542,7 @@ class WorkflowObject extends Model
     }
 
     /**
-     * Summary of enabledTransitions
+     * Retorna todas as transitions habilitadas para o objeto de workflow, com base no seu estado atual.
      * @return Collection<int, TransitionDefinition>
      */
     public function enabledTransitions(): Collection
