@@ -26,6 +26,15 @@
         "graphp/graph": "^1@dev",
         "graphp/graphviz": "1.x-dev"
     },
+    "require-dev": {
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Uspdev\\Workflow\\Tests\\": "tests/"
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [

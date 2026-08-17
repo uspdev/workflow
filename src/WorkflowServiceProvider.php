@@ -25,13 +25,8 @@ class WorkflowServiceProvider extends ServiceProvider
             __DIR__ . '/../config/workflow.php' => config_path('uspdev-workflow.php'),
         ], 'workflow-config');
 
-        // Publish migrations
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__ . '/../database/migrations' => database_path('migrations'),
-            ], 'workflow-migrations');
-        }
-        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        // O pacote é o único dono do schema V2. As migrations históricas permanecem apenas como registro e não são carregadas.
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations/v2');
 
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'uspdev-workflow');
 

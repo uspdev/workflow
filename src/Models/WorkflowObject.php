@@ -463,7 +463,7 @@ class WorkflowObject extends Model
      */
     public function definition(): BelongsTo
     {
-        return $this->belongsTo(WorkflowDefinition::class);
+        return $this->belongsTo(WorkflowDefinition::class, 'workflow_definition_id');
     }
 
     // ******************************
