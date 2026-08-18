@@ -131,7 +131,12 @@ class TransitionDefinition extends AbstractWfDto
     }
 
     /**
-     * @return array{roles: array<int, string>, users: array<int, string>, emails: array<int, string>}
+     * Resolve somente as referências funcionais de roles.
+     *
+     * As repetições são preservadas de propósito: o Workflow V2 não possui uma
+     * etapa de deduplicação de destinatários.
+     *
+     * @return array{roles: array<int, string>}
      */
     public function resolveNotificationDestinations(WorkflowDefinitionData $graph): array
     {
@@ -143,18 +148,11 @@ class TransitionDefinition extends AbstractWfDto
             }
         }
 
-        if ($this->notifications === null) {
-            return ['roles' => $defaultRoles, 'users' => [], 'emails' => []];
-        }
-
-        $roles = $this->notifications->overrideRoles !== []
-            ? $this->notifications->overrideRoles
-            : array_merge($defaultRoles, $this->notifications->appendRoles);
-
         return [
-            'roles' => $roles,
-            'users' => $this->notifications->users,
-            'emails' => $this->notifications->emails,
+            'roles' => array_merge(
+                $defaultRoles,
+                $this->notifications?->appendRoles ?? [],
+            ),
         ];
     }
 

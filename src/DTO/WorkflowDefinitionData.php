@@ -90,11 +90,6 @@ class WorkflowDefinitionData extends AbstractWfDto
                     $errors[] = "transição '{$transition->name}' referencia a role não declarada '{$role}'.";
                 }
             }
-            foreach ($transition->notifications?->overrideRoles ?? [] as $role) {
-                if (!in_array($role, $roleNames, true)) {
-                    $errors[] = "transição '{$transition->name}' referencia a role não declarada '{$role}'.";
-                }
-            }
         }
 
         self::throwIfInvalid($errors, $partial);
@@ -207,7 +202,6 @@ class WorkflowDefinitionData extends AbstractWfDto
             $roles = array_merge(
                 $roles,
                 $transition->notifications?->appendRoles ?? [],
-                $transition->notifications?->overrideRoles ?? [],
             );
         }
 
@@ -215,13 +209,13 @@ class WorkflowDefinitionData extends AbstractWfDto
     }
 
     /**
-     * @return array{roles: array<int, string>, users: array<int, string>, emails: array<int, string>}
+     * @return array{roles: array<int, string>}
      */
     public function resolveNotificationsFor(string $transitionName): array
     {
         $transition = $this->transition($transitionName);
 
         return $transition?->resolveNotificationDestinations($this)
-            ?? ['roles' => [], 'users' => [], 'emails' => []];
+            ?? ['roles' => []];
     }
 }
