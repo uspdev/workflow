@@ -2,7 +2,6 @@
 
 namespace Uspdev\Workflow\Models;
 
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Uspdev\Forms\Form;
@@ -258,31 +258,37 @@ class WorkflowObject extends Model
      * executa a transição
      * notifica quem precisar
      */
-    public function apply(string $transitionName, array $inputData, ?User $user = null): bool
+    public function apply(string $transitionName, array $inputData = [], ?User $user = null): bool
     {
         /** @var WorkflowDefinition */
-        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
-        $transition = $workflowDefinition->transition($transitionName);
+        $workflowDefinition = $this->definition()->firstOrFail();
+        $transition = $workflowDefinition->getDefinitionData()->transition($transitionName);
         if (!$transition) {
             throw new TransitionNotAllowedException("A transição '{$transitionName}' não existe neste workflow.");
         }
 
-        if (!$this->can($transitionName, $user)) {
-            throw new TransitionNotAllowedException("Você não tem permissão para executar a ação '{$transitionName}' no estado atual.");
-        }
+        DB::transaction(function () use ($transitionName, $transition, $user, $inputData): void {
+            /** @var WorkflowObject $object */
+            $object = self::query()->lockForUpdate()->findOrFail($this->getKey());
+            if (!$object->can($transitionName, $user)) {
+                throw new TransitionNotAllowedException("Você não tem permissão para executar a ação '{$transitionName}' no estado atual.");
+            }
 
-        DB::transaction(function () use ($transitionName, $transition, $user, $inputData) {
+            $formSubmission = null;
+
             // 3. valida form
-            if ($transition->form) {
+            if (is_string($transition->form)) {
                 //todo: precisa validar
                 // handleSubmission deve lançar exception se validação falhar
-                $form = $transition->form()->handleSubmission($inputData);
-                if(is_array($form) && $form['status'] === 'error') {
+                $formSubmission = $transition->form()->handleSubmission($inputData);
+                if(is_array($formSubmission) && $formSubmission['status'] === 'error') {
                     throw ValidationException::withMessages(['Submissão de formulário da transition é inválida.']);
                 }
             }
 
             if ($transition->bindings->isNotEmpty()) {
+                $variables = $object->variables ?? [];
+
                 // todo: precisa validar esta lógica
                 foreach ($transition->bindings as $binding) {
                     // 1. Extrai o valor do input (ex: transforma 'form.user_codpes' em $inputData['user_codpes'])
@@ -290,25 +296,32 @@ class WorkflowObject extends Model
                     $rawValue = Arr::get($inputData, $rawKey);
 
                     // 2. Resolve o valor baseado na estratégia do 'resolver'
-                    $resolvedValue = $this->resolveBindingValue($binding->resolver, $rawValue);
+                    $resolvedValue = $object->resolveBindingValue($binding->resolver, $rawValue);
 
                     // 3. Alimenta o atributo do Model Local dinâmicamente
-                    $this->variables->{$binding->attribute} = $resolvedValue;
+                    $variables[$binding->attribute] = $resolvedValue;
                 }
+
+                $object->variables = $variables;
             }
 
-            $this->current_places = $transition->tos;
+            $fromPlaces = $object->current_places;
+            $object->current_places = $transition->tos;
 
-            $this->save();
-            $this->history()->create([
+            $object->save();
+            $object->history()->create([
                 'transition_name' => $transitionName,
-                'from_places' => implode(',', $transition->from),
-                'to_places' => implode(',', $transition->to),
-                'user_id' => $user?->id,
-                'form_submission_id' => $form?->id,
+                'from_places' => $fromPlaces,
+                'to_places' => $transition->tos,
+                'user_id' => $user?->getAuthIdentifier(),
+                'form_submission_id' => $formSubmission instanceof Model
+                    ? $formSubmission->getKey()
+                    : null,
                 'metadata' => [],
             ]);
         });
+
+        $this->refresh();
 
         // TODO -  notifica quem precisar
         // notifications está bugado
@@ -327,20 +340,9 @@ class WorkflowObject extends Model
      *
      * @return array<TransitionDefinition> Lista de DTOs das transições disponíveis.
      */
-    public function transitions(): ?array
-    {   
-        /** @var WorkflowDefinition */
-        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
-        if (isset($workflowDefinition)) 
-        {
-            $curr_place_trans = [];
-            foreach($this->current_places as $place) 
-            {
-                $curr_place_trans[$place] = $workflowDefinition->transitionsFromPlace($place);
-            }
-            return $curr_place_trans;
-        }
-        return null;
+    public function transitions(): array
+    {
+        return $this->enabledTransitions()->all();
     }
 
     /**
@@ -351,8 +353,9 @@ class WorkflowObject extends Model
      * além de dados para construção dinâmica de formulários e descrições complementares.
      *
      * @return array{
-     *     actors: array<int, int|string>, xxxxxxxx
-     *     transitions: array<string>,
+     *     current_places: array<int, string>,
+     *     actors: array<int, string>,
+     *     transitions: array<int, array<string, mixed>>
      * } Dados estruturados para o frontend.
      */
     public function workflowState(): array
@@ -363,23 +366,14 @@ class WorkflowObject extends Model
             'transitions' => [],
         ];
 
-        // TODO - Recuperar Actors corretamente
-        $actors_arr = [];
-        $workflow_def = WorkflowDefinition::find($this->workflow_definition_id);
-        foreach($this->current_places as $place) 
-        {
-            $place_def = $workflow_def->place($place);
-            $actors_arr[] = $place_def->roles;
-        }
-
-        $transition_arr = [];
-        foreach($this->transitions() as $transition)
-        {
-            $transition_arr[] = $transition->toArray();
-        }
-
-        $data['actors'] = $actors_arr;
-        $data['transitions'] = $transition_arr;
+        $data['actors'] = $this->currentPlaces()
+            ->flatMap(fn (PlaceDefinition $place): array => $place->roles)
+            ->values()
+            ->all();
+        $data['transitions'] = $this->enabledTransitions()
+            ->map(fn (TransitionDefinition $transition): array => $transition->toArray())
+            ->values()
+            ->all();
         return $data;
     }
 
@@ -387,39 +381,31 @@ class WorkflowObject extends Model
      * Verifica se uma transição específica pode ser executada.
      *
      * @param  string  $transition  O nome da transição a ser verificada.
-     * @param  \App\Models\User|null  $user  O usuário executando a ação (opcional).
+     * @param  User|null  $user  O usuário executando a ação (opcional).
      * @return bool  True se a transição for permitida, false caso contrário.
      */
     public function can(string $transition, ?User $user = null): bool
     {
-        $can = true;
         /** @var WorkflowDefinition */
-        $workflowDefinition = WorkflowDefinition::find($this->workflow_definition_id);
-        $places = $workflowDefinition->definition['places'] ?? [];
-        $transitionData = $workflowDefinition->transition($transition);
-        if(isset($user))
-        {
-            foreach($transitionData->from as $fromPlace) 
-            {
-                if(!empty($places[$fromPlace]['roles']))
-                {
-                    if(!$user->hasRole($places[$fromPlace]['roles']))
-                    {
-                        $can = false; break;
-                    }
-                }
-            }
-        }
-        else
-        {
-            foreach($transitionData->from as $fromPlace) 
-            {
-                if(!empty($places[$fromPlace]['roles']))
-                {$can = false; break;}
-            }
+        $workflowDefinition = $this->definition()->first();
+        if ($workflowDefinition === null) {
+            return false;
         }
 
-        return $can;
+        $definitionData = $workflowDefinition->getDefinitionData();
+        $transitionData = $definitionData->transition($transition);
+        if ($transitionData === null || !in_array($transitionData->from, $this->current_places, true)) {
+            return false;
+        }
+
+        $roles = $definitionData->place($transitionData->from)?->roles ?? [];
+        if ($roles === []) {
+            return true;
+        }
+
+        return $user !== null
+            && method_exists($user, 'hasRole')
+            && $user->hasRole($roles);
     }
 
     /**
@@ -482,7 +468,7 @@ class WorkflowObject extends Model
      */
     public function getHistory(): Collection
     {
-        return $this->history;
+        return $this->history()->orderBy('id')->get();
     }
 
     /**
@@ -493,7 +479,7 @@ class WorkflowObject extends Model
      */
     public function getCurrentState()
     {
-        return $this->state ?? [];
+        return $this->current_places ?? [];
     }
 
     /**
@@ -504,7 +490,7 @@ class WorkflowObject extends Model
      */
     public function setCurrentState($state)
     {
-        $this->state = $state;
+        $this->current_places = $state;
     }
 
     /**
@@ -524,21 +510,11 @@ class WorkflowObject extends Model
     public function currentPlaces(): Collection
     {
         /** @var WorkflowDefinition */
-        $workflowDef = WorkflowDefinition::find($this->workflow_definition_id);
+        $workflowDef = $this->definition()->firstOrFail();
 
-        $defPlaces = array_filter($workflowDef->definition['places'], function($place){
-            return in_array($place['name'],$this->current_places);
-        });
-
-        /** @var Collection<int, PlaceDefinition> */
-        $placeColl = collect();
-
-        foreach($defPlaces as $place)
-        {
-            $placeColl->push(PlaceDefinition::fromArray($place));
-        }
-
-        return $placeColl;
+        return $workflowDef->places()
+            ->filter(fn (PlaceDefinition $place): bool => in_array($place->name, $this->current_places, true))
+            ->values();
     }
 
     /**
@@ -548,21 +524,11 @@ class WorkflowObject extends Model
     public function enabledTransitions(): Collection
     {
         /** @var WorkflowDefinition */
-        $workflowDef = WorkflowDefinition::find($this->workflow_definition_id)->first();
+        $workflowDef = $this->definition()->firstOrFail();
 
-        /** @var Collection<int, TransitionDefinition> */
-        $enabledTrans = collect();
-
-        $transitions = $workflowDef->definition['transitions'];
-        foreach($transitions as $transition)
-        {
-            if(in_array($transition['from'], $this->current_places))
-            {
-                $enabledTrans->push(TransitionDefinition::fromArray($transition));
-            }
-        }
-
-        return $enabledTrans;
+        return $workflowDef->transitions()
+            ->filter(fn (TransitionDefinition $transition): bool => in_array($transition->from, $this->current_places, true))
+            ->values();
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Uspdev\Workflow;
 
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Exceptions\WorkflowDefinitionNotFoundException;
@@ -10,22 +11,30 @@ use Uspdev\Workflow\Exceptions\WorkflowDefinitionNotFoundException;
 class WorkflowService
 {
     /**
-     * Cria uma nova instância de fluxo (WorkflowObject) para o modelo informado.
-     * Posiciona o objeto nos estados definidos no primeiro 'place' ou marcação inicial.
+     * Localiza ou cria a instância de fluxo do modelo informado.
+     * Um objeto de domínio conserva a definição e a versão com as quais foi iniciado.
      */
     public function start(string $workflowName, Model $model): WorkflowObject
     {
-        // 1. Carrega a definição para garantir que ela existe e está ativa
         $definition = $this->loadDefinition($workflowName);
         $definitionData = $definition->getDefinitionData();
+        $objectId = $model->getKey();
 
-        // 3. Cria a instância viva do processo (WorkflowObject)
-        return WorkflowObject::create([
-            'workflow_definition_id' => $definition->id,
-            'model_type' => get_class($model),
-            'model_id' => $model->getKey(),
-            'current_place' => $definitionData->initial_marking,
-        ]);
+        if ($objectId === null) {
+            throw new InvalidArgumentException('O modelo deve estar persistido antes de iniciar um workflow.');
+        }
+
+        return WorkflowObject::firstOrCreate(
+            [
+                'object_type' => $model->getMorphClass(),
+                'object_id' => (string) $objectId,
+            ],
+            [
+                'workflow_definition_id' => $definition->getKey(),
+                'current_places' => $definitionData->initial_places,
+                'variables' => [],
+            ],
+        );
     }
 
     /**
@@ -33,8 +42,12 @@ class WorkflowService
      */
     public function find(Model $model): ?WorkflowObject
     {
-        return WorkflowObject::where('model_type', get_class($model))
-            ->where('model_id', $model->getKey())
+        if ($model->getKey() === null) {
+            return null;
+        }
+
+        return WorkflowObject::where('object_type', $model->getMorphClass())
+            ->where('object_id', (string) $model->getKey())
             ->first();
     }
 
@@ -49,7 +62,8 @@ class WorkflowService
         if ($version !== null) {
             $query->where('version', $version);
         } else {
-            $query->where('is_published', true);
+            $query->where('status', 'published')
+                ->orderByDesc('version');
         }
 
         $definition = $query->first();

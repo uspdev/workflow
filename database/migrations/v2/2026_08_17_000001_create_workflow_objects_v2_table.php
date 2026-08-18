@@ -19,7 +19,7 @@ return new class extends Migration
             $table->json('variables')->nullable();
             $table->timestamps();
 
-            $table->index(['object_type', 'object_id'], 'workflow_objects_object_index');
+            $table->unique(['object_type', 'object_id'], 'workflow_objects_object_unique');
         });
     }
 
