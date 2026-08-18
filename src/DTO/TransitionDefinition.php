@@ -4,92 +4,137 @@ namespace Uspdev\Workflow\DTO;
 
 use Illuminate\Support\Collection;
 use Uspdev\Forms\Form;
-use Uspdev\Workflow\Data\AbstractWfDto;
+use Uspdev\Workflow\Exceptions\InvalidWorkflowDefinitionException;
 
 class TransitionDefinition extends AbstractWfDto
 {
     /**
-     * @param string $name Nome único da ação (ex: 'aprovar')
-     * @param string $label Texto do botão na UI (ex: 'Aprovar Pedido')
-     * @param array<string> $from Locais de origem que permitem esta ação (ex: ['analise'])
-     * @param array<string> $tos Locais de destino após a ação (ex: ['aprovado'])
-     * @param string $form Nome do formulário associado a esta transição na UI (opcional)
-     * @param Collection $bindings
-     * @param Collection $notifications
+     * @param array<int, string> $tos
+     * @param Collection<int, BindingDefinition> $bindings
      */
     public function __construct(
         public string $name,
         public string $label,
-        public array $from,
+        public string $from,
         public array $tos,
-        public ?string $form = null,
+        public string|false|null $form = null,
         public Collection $bindings = new Collection(),
-        public Collection $notifications = new Collection()
+        public ?NotificationDefinition $notifications = null,
     ) {}
 
-    /**
-     * Cria uma instância do DTO a partir de um array bruto (banco ou request).
-     */
     public static function fromArray(array $data): static
     {
-        self::validate($data);
+        $errors = self::validationErrors($data);
+        $bindings = collect();
 
-        return new self(
+        if (isset($data['bindings']) && is_array($data['bindings']) && array_is_list($data['bindings'])) {
+            foreach ($data['bindings'] as $index => $binding) {
+                if (!is_array($binding) || array_is_list($binding)) {
+                    $errors[] = "'bindings.{$index}' deve ser um objeto.";
+                    continue;
+                }
+
+                try {
+                    $bindings->push(BindingDefinition::fromArray($binding));
+                } catch (InvalidWorkflowDefinitionException $exception) {
+                    foreach ($exception->errors() as $error) {
+                        $errors[] = "bindings.{$index}: {$error}";
+                    }
+                }
+            }
+        }
+
+        $notifications = null;
+        if (array_key_exists('notifications', $data)
+            && $data['notifications'] !== null
+            && $data['notifications'] !== []) {
+            if (!is_array($data['notifications']) || array_is_list($data['notifications'])) {
+                $errors[] = "'notifications' deve ser um único objeto.";
+            } else {
+                try {
+                    $notifications = NotificationDefinition::fromArray($data['notifications']);
+                } catch (InvalidWorkflowDefinitionException $exception) {
+                    foreach ($exception->errors() as $error) {
+                        $errors[] = "notifications: {$error}";
+                    }
+                }
+            }
+        }
+
+        self::throwIfInvalid($errors);
+
+        return new static(
             name: $data['name'],
             label: $data['label'] ?? $data['name'],
             from: $data['from'],
             tos: $data['tos'],
             form: $data['form'] ?? null,
-            bindings: collect($data['bindings'])
-                ->map(fn($b) => BindingDefinition::fromArray($b)),
-            notifications: collect($data['notifications'])
-                ->map(fn($n) => NotificationDefinition::fromArray($n)),
+            bindings: $bindings,
+            notifications: $notifications,
         );
     }
 
-    /**
-     * Valida a definição de workflow informada em $data
-     */
     public static function validate(array $data): void
     {
-        self::requireString($data, 'name');
-        self::optionalString($data, 'label');
-        self::requireString($data, 'from');
-        self::requireArray($data, 'tos');
-        self::optionalString($data, 'form');
-        self::optionalArray($data, 'bindings');
-        self::optionalArray($data, 'notifications');
-
-        // TODO (WorkflowDefinitionData):
-        // - validar que from referencia places existentes
-        // - validar que tos referencia places existentes
+        self::fromArray($data);
     }
 
     /**
-     * Converte o DTO de volta para array.
+     * @return array<int, string>
      */
+    private static function validationErrors(array $data): array
+    {
+        $errors = [];
+        self::requireString($data, 'name', $errors);
+        self::optionalString($data, 'label', $errors);
+        self::requireString($data, 'from', $errors);
+        self::stringList($data, 'tos', $errors);
+
+        if (array_key_exists('form', $data)
+            && $data['form'] !== null
+            && $data['form'] !== false
+            && (!is_string($data['form']) || trim($data['form']) === '')) {
+            $errors[] = "'form' deve ser uma string não vazia, false ou null.";
+        }
+
+        if (array_key_exists('bindings', $data)
+            && (!is_array($data['bindings']) || !array_is_list($data['bindings']))) {
+            $errors[] = "'bindings' deve ser uma lista de objetos.";
+        }
+
+        return $errors;
+    }
+
     public function toArray(): array
     {
-        return [
+        $data = [
             'name' => $this->name,
             'label' => $this->label,
             'from' => $this->from,
             'tos' => $this->tos,
-            'form' => $this->form,
-            'bindings' => $this->bindings,
-            'notifications' => $this->notifications,
         ];
+
+        if ($this->form !== null) {
+            $data['form'] = $this->form;
+        }
+        if ($this->bindings->isNotEmpty()) {
+            $data['bindings'] = $this->bindings
+                ->map(fn (BindingDefinition $binding): array => $binding->toArray())
+                ->values()
+                ->all();
+        }
+        if ($this->notifications !== null) {
+            $data['notifications'] = $this->notifications->toArray();
+        }
+
+        return $data;
     }
 
-    // Dentro de src/DTO/TransitionDefinition.php
-
     /**
-     * Resolve os destinatários finais desta transição com base no grafo do workflow.
-     * * @param WorkflowDefinitionData $graph O grafo completo para buscar as roles dos 'tos'
+     * @return array{roles: array<int, string>, users: array<int, string>, emails: array<int, string>}
      */
     public function resolveNotificationDestinations(WorkflowDefinitionData $graph): array
     {
-        // 1. Busca as roles padrão dos locais de destino ('tos')
         $defaultRoles = [];
         foreach ($this->tos as $toPlaceName) {
             $place = $graph->place($toPlaceName);
@@ -98,55 +143,24 @@ class TransitionDefinition extends AbstractWfDto
             }
         }
 
-        // 2. Se não houver configuração de notificação personalizada, retorna o padrão
-        if ($this->notifications->isEmpty()) {
-            return [
-                'roles'  => array_unique($defaultRoles),
-                'users'  => [],
-                'emails' => [],
-            ];
+        if ($this->notifications === null) {
+            return ['roles' => $defaultRoles, 'users' => [], 'emails' => []];
         }
 
-        // 3. Inicializa os acumuladores
-        $finalRoles = [];
-        $finalUsers = [];
-        $finalEmails = [];
-
-        // Flag para controlar se alguma das notificações na lista aplicou um override (sobrescrita)
-        $hasOverride = false;
-
-        // 4. Itera sobre cada DTO de notificação para consolidar os dados
-        foreach ($this->notifications as $notification) {
-            // Se houver overrideRoles, ele substitui o padrão
-            if (!empty($notification->overrideRoles)) {
-                $hasOverride = true;
-                $finalRoles = array_merge($finalRoles, $notification->overrideRoles);
-            } else {
-                $finalRoles = array_merge($finalRoles, $notification->appendRoles ?? []);
-            }
-
-            $finalUsers = array_merge($finalUsers, $notification->users ?? []);
-            $finalEmails = array_merge($finalEmails, $notification->emails ?? []);
-        }
-
-        // Se NENHUMA notificação deu override, nós injetamos os defaultRoles acumulados do Place
-        if (!$hasOverride) {
-            $finalRoles = array_merge($defaultRoles, $finalRoles);
-        }
+        $roles = $this->notifications->overrideRoles !== []
+            ? $this->notifications->overrideRoles
+            : array_merge($defaultRoles, $this->notifications->appendRoles);
 
         return [
-            'roles'  => array_values(array_unique($finalRoles)),
-            'users'  => array_values(array_unique($finalUsers)),
-            'emails' => array_values(array_unique($finalEmails)),
+            'roles' => $roles,
+            'users' => $this->notifications->users,
+            'emails' => $this->notifications->emails,
         ];
     }
 
-    /**
-     * Retorna instância do form associado à transição
-     */
     public function form(): ?Form
     {
-        if ($this->form === null) {
+        if (!is_string($this->form)) {
             return null;
         }
 

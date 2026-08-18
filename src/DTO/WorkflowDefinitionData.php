@@ -2,135 +2,226 @@
 
 namespace Uspdev\Workflow\DTO;
 
-use AbstractWfDto;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
+use Uspdev\Workflow\Exceptions\InvalidWorkflowDefinitionException;
 
 class WorkflowDefinitionData extends AbstractWfDto
 {
+    /**
+     * @param array<int, string> $initial_places
+     * @param Collection<int, RoleDefinition> $roles
+     * @param Collection<int, PlaceDefinition> $places
+     * @param Collection<int, TransitionDefinition> $transitions
+     * @param array<string, mixed> $extra
+     */
     public function __construct(
         public string $name,
         public string $label,
-        public string $description,
-        public string $initial_marking,
+        public ?string $description,
+        public array $initial_places,
         public Collection $roles,
         public Collection $places,
-        public Collection $transitions
+        public Collection $transitions,
+        private array $extra = [],
     ) {}
 
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
+        $errors = [];
+        self::requireString($data, 'name', $errors);
+        self::optionalString($data, 'label', $errors);
+        if (array_key_exists('description', $data)
+            && $data['description'] !== null
+            && !is_string($data['description'])) {
+            $errors[] = "'description' deve ser uma string ou null.";
+        }
+        $initialPlaces = self::stringList($data, 'initial_places', $errors);
 
-        self::validate($data);
+        $roles = self::parseNamedItems($data, 'roles', RoleDefinition::class, $errors, allowEmpty: true);
+        $places = self::parseNamedItems($data, 'places', PlaceDefinition::class, $errors);
+        $transitions = self::parseNamedItems($data, 'transitions', TransitionDefinition::class, $errors);
 
-        $roles = collect($data['roles'])
-            ->map(fn($r) => RoleDefinition::fromArray($r));
+        $knownFields = array_flip([
+            'name', 'label', 'description', 'initial_places', 'roles', 'places', 'transitions',
+            'version', 'status',
+        ]);
+        $partial = $errors === []
+            ? new static(
+                name: $data['name'],
+                label: $data['label'] ?? $data['name'],
+                description: $data['description'] ?? null,
+                initial_places: $initialPlaces,
+                roles: $roles,
+                places: $places,
+                transitions: $transitions,
+                extra: array_diff_key($data, $knownFields),
+            )
+            : null;
 
-        $places = collect($data['places'])
-            ->map(fn($p) => PlaceDefinition::fromArray($p));
+        $roleNames = $roles->pluck('name')->all();
+        $placeNames = $places->pluck('name')->all();
 
-        $transitions = collect($data['transitions'])
-            ->map(fn($t) => TransitionDefinition::fromArray($t));
+        foreach ($initialPlaces as $place) {
+            if (!in_array($place, $placeNames, true)) {
+                $errors[] = "initial_places referencia o place inexistente '{$place}'.";
+            }
+        }
 
-
-        $roleNames = $roles->pluck('name')->toArray();
         foreach ($places as $place) {
             foreach ($place->roles as $role) {
-                if (!in_array($role, $roleNames)) {
-                    throw new InvalidArgumentException(
-                        "O local '{$place->name}' atribui permissão para a role '{$role}',
-                        mas ela não foi definida na lista global de roles do workflow."
-                    );
+                if (!in_array($role, $roleNames, true)) {
+                    $errors[] = "place '{$place->name}' referencia a role não declarada '{$role}'.";
                 }
             }
         }
 
-        return new self(
-            name: $data['name'],
-            label: $data['label'] ?? $data['name'],
-            description: $data['description'],
-            initial_marking: $data['initial_marking'],
-            roles: collect($data['roles'])
-                ->map(fn($r) => RoleDefinition::fromArray($r)),
-            places: collect($data['places'])
-                ->map(fn($r) => PlaceDefinition::fromArray($r)),
-            transitions: collect($data['transitions'])
-                ->map(fn($r) => TransitionDefinition::fromArray($r)),
-        );
-    }
+        foreach ($transitions as $transition) {
+            if (!in_array($transition->from, $placeNames, true)) {
+                $errors[] = "transição '{$transition->name}' referencia o place de origem inexistente '{$transition->from}'.";
+            }
+            foreach ($transition->tos as $to) {
+                if (!in_array($to, $placeNames, true)) {
+                    $errors[] = "transição '{$transition->name}' referencia o place de destino inexistente '{$to}'.";
+                }
+            }
 
-    private static function validate(array $data): void
-    {
-        self::requireString($data, 'name');
-        self::optionalString($data, 'label');
-        self::optionalString($data, 'description');
-        self::requireArray($data, 'initial_places');
-        self::requireArray($data, 'roles');
-        self::requireArray($data, 'places');
-        self::requireArray($data, 'transitions');
-
-        // TODO:
-        // self::validateInitialPlaces($data);
-        // self::validateRoles($data);
-        // self::validatePlaces($data);
-        self::validateTransitions($data);
-    }
-
-    private static function validateTransitions(array $data)
-    {
-        TransitionDefinition::validate($data['transitions']);
-        $placeNames = array_flip(array_column($data['places'], 'name'));
-
-        foreach ($data['transitions'] as $transition) {
-            $allPlaces = array_merge($transition['from'], $transition['tos']);
-            foreach ($allPlaces as $place) {
-                if (!isset($placeNames[$place])) {
-                    throw new InvalidArgumentException(
-                        "A transição '{$transition->name}' referencia o place inválido '{$place}'."
-                    );
+            foreach ($transition->notifications?->appendRoles ?? [] as $role) {
+                if (!in_array($role, $roleNames, true)) {
+                    $errors[] = "transição '{$transition->name}' referencia a role não declarada '{$role}'.";
+                }
+            }
+            foreach ($transition->notifications?->overrideRoles ?? [] as $role) {
+                if (!in_array($role, $roleNames, true)) {
+                    $errors[] = "transição '{$transition->name}' referencia a role não declarada '{$role}'.";
                 }
             }
         }
+
+        self::throwIfInvalid($errors, $partial);
+
+        return $partial;
+    }
+
+    public static function validate(array $data): void
+    {
+        self::fromArray($data);
     }
 
     /**
-     * Resolve os destinatários de notificação para uma transição específica.
+     * @template T of AbstractWfDto
+     * @param class-string<T> $dtoClass
+     * @param array<int, string> $errors
+     * @return Collection<int, T>
+     */
+    private static function parseNamedItems(
+        array $data,
+        string $field,
+        string $dtoClass,
+        array &$errors,
+        bool $allowEmpty = false,
+    ): Collection {
+        $items = collect();
+        if (!array_key_exists($field, $data)
+            || !is_array($data[$field])
+            || !array_is_list($data[$field])) {
+            $errors[] = "'{$field}' deve ser uma lista de objetos.";
+            return $items;
+        }
+
+        if (!$allowEmpty && $data[$field] === []) {
+            $errors[] = "'{$field}' deve possuir pelo menos um item.";
+        }
+
+        $names = [];
+        foreach ($data[$field] as $index => $item) {
+            if (!is_array($item) || array_is_list($item)) {
+                $errors[] = "'{$field}.{$index}' deve ser um objeto.";
+                continue;
+            }
+
+            try {
+                $dto = $dtoClass::fromArray($item);
+                if (isset($names[$dto->name])) {
+                    $errors[] = "'{$field}' contém o nome duplicado '{$dto->name}'.";
+                    continue;
+                }
+                $names[$dto->name] = true;
+                $items->push($dto);
+            } catch (InvalidWorkflowDefinitionException $exception) {
+                foreach ($exception->errors() as $error) {
+                    $errors[] = "{$field}.{$index}: {$error}";
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    public function toArray(): array
+    {
+        return array_merge($this->extra, [
+            'name' => $this->name,
+            'label' => $this->label,
+            'description' => $this->description,
+            'initial_places' => $this->initial_places,
+            'roles' => $this->roles->map->toArray()->values()->all(),
+            'places' => $this->places->map->toArray()->values()->all(),
+            'transitions' => $this->transitions->map->toArray()->values()->all(),
+        ]);
+    }
+
+    public function place(string $placeName): ?PlaceDefinition
+    {
+        return $this->places->firstWhere('name', $placeName);
+    }
+
+    public function transition(string $transitionName): ?TransitionDefinition
+    {
+        return $this->transitions->firstWhere('name', $transitionName);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function referencedForms(): array
+    {
+        return $this->transitions
+            ->map(fn (TransitionDefinition $transition): string|false|null => $transition->form)
+            ->filter(fn (string|false|null $form): bool => is_string($form))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function referencedRoles(): array
+    {
+        $roles = $this->roles->pluck('name')->all();
+
+        foreach ($this->places as $place) {
+            $roles = array_merge($roles, $place->roles);
+        }
+        foreach ($this->transitions as $transition) {
+            $roles = array_merge(
+                $roles,
+                $transition->notifications?->appendRoles ?? [],
+                $transition->notifications?->overrideRoles ?? [],
+            );
+        }
+
+        return array_values(array_unique($roles));
+    }
+
+    /**
+     * @return array{roles: array<int, string>, users: array<int, string>, emails: array<int, string>}
      */
     public function resolveNotificationsFor(string $transitionName): array
     {
-        $transition = $this->transitions->firstWhere('name', $transitionName);
-        if (!$transition) {
-            return ['roles' => [], 'users' => [], 'emails' => []];
-        }
+        $transition = $this->transition($transitionName);
 
-        // 1. Busca as roles default mapeando os places listados no 'tos' da transição
-        $defaultRoles = [];
-        foreach ($transition->tos as $toPlaceName) {
-            $place = $this->place($toPlaceName); // O Grafo acha o place aqui!
-            if ($place) {
-                $defaultRoles = array_merge($defaultRoles, $place->roles);
-            }
-        }
-        $defaultRoles = array_unique($defaultRoles);
-
-        // 2. Se a transição não tiver notificações customizadas, retorna o default
-        if (!$transition->notifications) {
-            return [
-                'roles'  => $defaultRoles,
-                'users'  => [],
-                'emails' => [],
-            ];
-        }
-
-        // 3. Aplica a regra: OVERRIDE substitui, senão faz APPEND
-        $finalRoles = !empty($transition->notifications->overrideRoles)
-            ? $transition->notifications->overrideRoles
-            : array_merge($defaultRoles, $transition->notifications->appendRoles);
-
-        return [
-            'roles'  => array_unique($finalRoles),
-            'users'  => $transition->notifications->users,
-            'emails' => $transition->notifications->emails,
-        ];
+        return $transition?->resolveNotificationDestinations($this)
+            ?? ['roles' => [], 'users' => [], 'emails' => []];
     }
 }

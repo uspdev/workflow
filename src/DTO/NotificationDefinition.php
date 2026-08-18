@@ -2,7 +2,7 @@
 
 namespace Uspdev\Workflow\DTO;
 
-readonly class NotificationDefinition
+class NotificationDefinition extends AbstractWfDto
 {
     /**
      * @param array<string> $overrideRoles Substitui completamente as roles default de destino
@@ -20,21 +20,26 @@ readonly class NotificationDefinition
     /**
      * Cria o DTO de notificação garantindo que a estrutura do JSON seja respeitada.
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
-        // Validação de Conflito de Regras: Não faz sentido ter override e append ao mesmo tempo!
-        if (!empty($data['override_roles']) && !empty($data['append_roles'])) {
-            throw new \InvalidArgumentException(
-                "Erro na configuração de notificação: Você não pode definir 'override_roles' e 'append_roles' simultaneamente na mesma transição."
-            );
-        }
+        self::validate($data);
 
-        return new self(
-            overrideRoles: (array) ($data['override_roles'] ?? []),
-            appendRoles: (array) ($data['append_roles'] ?? []),
-            users: (array) ($data['users'] ?? []),
-            emails: (array) ($data['emails'] ?? [])
+        return new static(
+            overrideRoles: $data['override_roles'] ?? [],
+            appendRoles: $data['append_roles'] ?? [],
+            users: $data['users'] ?? [],
+            emails: $data['emails'] ?? [],
         );
+    }
+
+    public static function validate(array $data): void
+    {
+        $errors = [];
+        self::stringList($data, 'override_roles', $errors, allowEmpty: true, required: false);
+        self::stringList($data, 'append_roles', $errors, allowEmpty: true, required: false);
+        self::stringList($data, 'users', $errors, allowEmpty: true, required: false);
+        self::stringList($data, 'emails', $errors, allowEmpty: true, required: false);
+        self::throwIfInvalid($errors);
     }
 
     /**

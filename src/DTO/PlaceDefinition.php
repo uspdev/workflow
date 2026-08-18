@@ -2,7 +2,7 @@
 
 namespace Uspdev\Workflow\DTO;
 
-readonly class PlaceDefinition
+class PlaceDefinition extends AbstractWfDto
 {
     /**
      * @param string $name Nome único identificador (ex: 'analise_chefia')
@@ -18,13 +18,24 @@ readonly class PlaceDefinition
     /**
      * Cria uma instância do DTO a partir de um array bruto (banco ou request).
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
-        return new self(
-            name: $data['name'] ?? '',
-            label: $data['label'] ?? '',
+        self::validate($data);
+
+        return new static(
+            name: $data['name'],
+            label: $data['label'] ?? $data['name'],
             roles: $data['roles'] ?? []
         );
+    }
+
+    public static function validate(array $data): void
+    {
+        $errors = [];
+        self::requireString($data, 'name', $errors);
+        self::optionalString($data, 'label', $errors);
+        self::stringList($data, 'roles', $errors, allowEmpty: true);
+        self::throwIfInvalid($errors);
     }
 
     /**

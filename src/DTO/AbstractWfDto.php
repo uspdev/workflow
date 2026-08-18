@@ -1,8 +1,8 @@
 <?php
 
-namespace Uspdev\Workflow\Data;
+namespace Uspdev\Workflow\DTO;
 
-use InvalidArgumentException;
+use Uspdev\Workflow\Exceptions\InvalidWorkflowDefinitionException;
 
 abstract class AbstractWfDto
 {
@@ -13,79 +13,86 @@ abstract class AbstractWfDto
 
     abstract public static function validate(array $data): void;
 
-    // === Métodos Privados Auxiliares de Validação ===
-
-    private static function invalidType(string $field, string $type): never
+    /**
+     * @param array<int, string> $errors
+     */
+    protected static function throwIfInvalid(array $errors, mixed $partial = null): void
     {
-        throw new InvalidArgumentException("O campo '{$field}' deve ser {$type}.");
+        if ($errors !== []) {
+            throw new InvalidWorkflowDefinitionException($errors, $partial);
+        }
     }
 
-    private static function ensureExists(array $data, string $field): void
+    /**
+     * @param array<string, mixed> $data
+     * @param array<int, string> $errors
+     */
+    protected static function requireString(array $data, string $field, array &$errors): ?string
+    {
+        if (!array_key_exists($field, $data) || !is_string($data[$field]) || trim($data[$field]) === '') {
+            $errors[] = "'{$field}' deve ser uma string não vazia.";
+            return null;
+        }
+
+        return $data[$field];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<int, string> $errors
+     */
+    protected static function optionalString(array $data, string $field, array &$errors): ?string
     {
         if (!array_key_exists($field, $data)) {
-            throw new InvalidArgumentException("O campo '{$field}' é obrigatório.");
-        }
-    }
-
-    private static function ensureNotEmptyString(string $field, string $value): void
-    {
-        if (trim($value) === '') {
-            throw new InvalidArgumentException("O campo '{$field}' deve ser uma string não vazia.");
-        }
-    }
-
-    private static function ensureNotEmptyArray(string $field, array $value): void
-    {
-        if (count($value) === 0) {
-            throw new InvalidArgumentException("O campo '{$field}' deve possuir pelo menos um elemento.");
-        }
-    }
-
-    // === Métodos Protegidos de Validação ===
-
-    protected static function requireArray(array $data, string $field, bool $allowEmpty = false): void
-    {
-        self::ensureExists($data, $field);
-
-        if (!is_array($data[$field])) {
-            self::invalidType($field, 'um array');
-        }
-
-        if (!$allowEmpty) {
-            self::ensureNotEmptyArray($field, $data[$field]);
-        }
-    }
-
-    protected static function requireString(array $data, string $field): void
-    {
-        self::ensureExists($data, $field);
-
-        if (!is_string($data[$field])) {
-            self::invalidType($field, 'uma string não vazia');
-        }
-
-        self::ensureNotEmptyString($field, $data[$field]);
-    }
-
-    protected static function optionalArray(array $data, string $field): void
-    {
-        if (!array_key_exists($field, $data)) {
-            return;
-        }
-
-        if (!is_array($data[$field])) {
-            self::invalidType($field, 'um array');
-        }
-    }
-
-    protected static function optionalString(array $data, string $field): void
-    {
-        if (!array_key_exists($field, $data)) {
-            return;
+            return null;
         }
 
         if (!is_string($data[$field])) {
-            self::invalidType($field, 'uma string');
+            $errors[] = "'{$field}' deve ser uma string.";
+            return null;
         }
+
+        return $data[$field];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<int, string> $errors
+     * @return array<int, string>
+     */
+    protected static function stringList(
+        array $data,
+        string $field,
+        array &$errors,
+        bool $allowEmpty = false,
+        bool $required = true,
+    ): array {
+        if (!array_key_exists($field, $data)) {
+            if ($required) {
+                $errors[] = "'{$field}' deve ser uma lista de strings.";
+            }
+            return [];
+        }
+
+        if (!is_array($data[$field]) || !array_is_list($data[$field])) {
+            $errors[] = "'{$field}' deve ser uma lista de strings.";
+            return [];
+        }
+
+        if (!$allowEmpty && $data[$field] === []) {
+            $errors[] = "'{$field}' deve possuir pelo menos um item.";
+            return [];
+        }
+
+        $values = [];
+        foreach ($data[$field] as $index => $value) {
+            if (!is_string($value) || trim($value) === '') {
+                $errors[] = "'{$field}.{$index}' deve ser uma string não vazia.";
+                continue;
+            }
+            $values[] = $value;
+        }
+
+        return $values;
     }
 }

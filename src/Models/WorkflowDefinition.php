@@ -5,12 +5,13 @@ namespace Uspdev\Workflow\Models;
 use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Uspdev\Workflow\DTO\PlaceDefinition;
@@ -222,14 +223,12 @@ class WorkflowDefinition extends Model
      */
     public function place(string $placeName): PlaceDefinition
     {
-        $places = $this->definition['places'];
-        $place_data = [
-            'name' => $placeName,
-            'label' => $places[$placeName]['label'] ?? '',
-            'roles' => $places[$placeName]['roles'] ?? [],
-        ];
+        $place = $this->getDefinitionData()->place($placeName);
+        if ($place === null) {
+            throw new InvalidArgumentException("O place '{$placeName}' não existe na definição '{$this->name}'.");
+        }
 
-        return PlaceDefinition::fromArray($place_data);
+        return $place;
     }
 
     /**
@@ -238,15 +237,7 @@ class WorkflowDefinition extends Model
      */
     public function places(): Collection
     {
-        $places = $this->definition['places'];
-        $placesColl = collect();
-
-        foreach($places as $place)
-        {
-            $placesColl->push($this->place($place['name']));
-        }
-
-        return $placesColl;
+        return $this->getDefinitionData()->places;
     }
 
     /**
@@ -256,17 +247,12 @@ class WorkflowDefinition extends Model
      */
     public function transition(string $transitionName): TransitionDefinition
     {
-        $transitions = $this->definition['transitions'];;
+        $transition = $this->getDefinitionData()->transition($transitionName);
+        if ($transition === null) {
+            throw new InvalidArgumentException("A transição '{$transitionName}' não existe na definição '{$this->name}'.");
+        }
 
-        $transition_data = [
-            'name' => $transitionName,
-            'label' => $transitions[$transitionName]['label'] ?? '',
-            'from' => $transitions[$transitionName]['from'] ?? '',
-            'tos' => $transitions[$transitionName]['tos'] ?? [],
-            'form' => $transitions[$transitionName]['form'] ?? null,
-        ];
-
-        return TransitionDefinition::fromArray($transition_data);
+        return $transition;
     }
 
     /**
@@ -275,15 +261,7 @@ class WorkflowDefinition extends Model
      */
     public function transitions(): Collection
     {
-        $transitions = $this->definition['transitions'];
-        $transitionsColl = collect();
-
-        foreach($transitions as $transition)
-        {
-            $transitionsColl->push($this->transition($transition['name']));
-        }
-
-        return $transitionsColl;
+        return $this->getDefinitionData()->transitions;
     }
 
     /**
@@ -293,14 +271,9 @@ class WorkflowDefinition extends Model
      */
     public function transitionsFromPlace(string $placeName): Collection
     {
-        $transitions = $this->definition['places'][$placeName]['transitions'] ?? [];
-        $availableTransitions = collect();
-        foreach($transitions as $transitionName)
-        {
-            $availableTransitions->push($this->transition($transitionName));
-        }
-
-        return $availableTransitions;
+        return $this->getDefinitionData()->transitions
+            ->filter(fn (TransitionDefinition $transition): bool => $transition->from === $placeName)
+            ->values();
     }
 
     /**

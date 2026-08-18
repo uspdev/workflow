@@ -2,7 +2,7 @@
 
 namespace Uspdev\Workflow\DTO;
 
-readonly class BindingDefinition
+class BindingDefinition extends AbstractWfDto
 {
     public function __construct(
         public string $attribute, // O campo que será salvo no seu Model (ex: 'analista_id')
@@ -10,13 +10,24 @@ readonly class BindingDefinition
         public string $resolver   // O método ou classe que vai transformar o dado (ex: 'user_by_codpes')
     ) {}
 
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
-        return new self(
-            attribute: $data['attribute'] ?? '',
-            from: $data['from'] ?? '',
-            resolver: $data['resolver'] ?? ''
+        self::validate($data);
+
+        return new static(
+            attribute: $data['attribute'],
+            from: $data['from'],
+            resolver: $data['resolver'],
         );
+    }
+
+    public static function validate(array $data): void
+    {
+        $errors = [];
+        self::requireString($data, 'attribute', $errors);
+        self::requireString($data, 'from', $errors);
+        self::requireString($data, 'resolver', $errors);
+        self::throwIfInvalid($errors);
     }
 
     public function toArray(): array
