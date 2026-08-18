@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Uspdev\Forms\FormsManager;
+use Uspdev\Forms\Models\FormDefinition;
+use Uspdev\Forms\Models\FormSubmission;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\Tests\TestCase;
@@ -110,6 +113,138 @@ class WorkflowRuntimeTest extends TestCase
         }
     }
 
+    public function test_it_submits_obs_with_the_active_form_version_and_records_the_transition(): void
+    {
+        FormDefinition::create([
+            'name' => 'obs',
+            'version' => 1,
+            'status' => 'disabled',
+            'group' => 'workflow',
+            'description' => 'Observação antiga',
+            'fields' => [[
+                'name' => 'obs',
+                'type' => 'textarea',
+                'label' => 'Observação',
+                'required' => true,
+            ]],
+        ]);
+        $activeDefinition = FormDefinition::create([
+            'name' => 'obs',
+            'version' => 2,
+            'status' => 'active',
+            'group' => 'workflow',
+            'description' => 'Observação',
+            'fields' => [[
+                'name' => 'obs',
+                'type' => 'textarea',
+                'label' => 'Observação',
+                'required' => true,
+            ]],
+        ]);
+        $this->definition('equivalencia_obs', ['svgrad_conferencia'], [
+            ['name' => 'svgrad_conferencia', 'roles' => ['svgrad']],
+            ['name' => 'depto_indica_docente', 'roles' => ['depto']],
+        ], [[
+            'name' => 'tr_conferencia_indica',
+            'label' => 'Indicar docente',
+            'from' => 'svgrad_conferencia',
+            'tos' => ['depto_indica_docente'],
+            'form' => 'obs',
+        ]]);
+        $object = $this->app->make(WorkflowService::class)
+            ->start('equivalencia_obs', Aproveitamento::create());
+        $user = new SvgradWorkflowUser();
+        $user->id = 654321;
+
+        $this->assertTrue($object->apply(
+            'tr_conferencia_indica',
+            ['obs' => 'Indicar docente da área de cálculo.'],
+            $user,
+        ));
+
+        $history = $object->getHistory()->sole();
+        $submission = $history->formSubmission;
+        $this->assertSame(['depto_indica_docente'], $object->current_places);
+        $this->assertSame('tr_conferencia_indica', $history->transition_name);
+        $this->assertSame(['svgrad_conferencia'], $history->from_places);
+        $this->assertSame(['depto_indica_docente'], $history->to_places);
+        $this->assertSame(654321, $history->user_id);
+        $this->assertSame($submission->id, $history->form_submission_id);
+        $this->assertSame($activeDefinition->id, $submission->form_definition_id);
+        $this->assertSame((string) $object->id, $submission->key);
+        $this->assertSame(['obs' => 'Indicar docente da área de cálculo.'], $submission->data);
+        $this->assertSame([], $history->metadata);
+        $this->assertArrayNotHasKey('obs', $history->metadata);
+    }
+
+    public function test_invalid_obs_does_not_submit_or_complete_the_transition(): void
+    {
+        FormDefinition::create([
+            'name' => 'obs',
+            'version' => 1,
+            'status' => 'active',
+            'group' => 'workflow',
+            'description' => 'Observação',
+            'fields' => [[
+                'name' => 'obs',
+                'type' => 'textarea',
+                'label' => 'Observação',
+                'required' => true,
+            ]],
+        ]);
+        $this->definition('equivalencia_obs_invalido', ['svgrad_conferencia'], [
+            ['name' => 'svgrad_conferencia', 'roles' => ['svgrad']],
+            ['name' => 'depto_indica_docente', 'roles' => ['depto']],
+        ], [[
+            'name' => 'tr_conferencia_indica',
+            'from' => 'svgrad_conferencia',
+            'tos' => ['depto_indica_docente'],
+            'form' => 'obs',
+        ]]);
+        $object = $this->app->make(WorkflowService::class)
+            ->start('equivalencia_obs_invalido', Aproveitamento::create());
+        $user = new SvgradWorkflowUser();
+        $user->id = 654321;
+
+        $this->expectException(ValidationException::class);
+
+        try {
+            $object->apply('tr_conferencia_indica', [], $user);
+        } finally {
+            $this->assertSame(['svgrad_conferencia'], $object->fresh()->current_places);
+            $this->assertDatabaseCount('workflow_history', 0);
+            $this->assertSame(0, FormSubmission::count());
+        }
+    }
+
+    public function test_missing_obs_form_does_not_complete_the_transition(): void
+    {
+        $this->definition('equivalencia_obs_ausente', ['svgrad_conferencia'], [
+            ['name' => 'svgrad_conferencia', 'roles' => ['svgrad']],
+            ['name' => 'depto_indica_docente', 'roles' => ['depto']],
+        ], [[
+            'name' => 'tr_conferencia_indica',
+            'from' => 'svgrad_conferencia',
+            'tos' => ['depto_indica_docente'],
+            'form' => 'obs',
+        ]]);
+        $object = $this->app->make(WorkflowService::class)
+            ->start('equivalencia_obs_ausente', Aproveitamento::create());
+        $user = new SvgradWorkflowUser();
+        $user->id = 654321;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Form definition 'obs' nao encontrada.");
+
+        try {
+            $object->apply('tr_conferencia_indica', ['obs' => 'Docente sugerido.'], $user);
+        } finally {
+            $this->assertSame(['svgrad_conferencia'], $object->fresh()->current_places);
+            $this->assertDatabaseCount('workflow_history', 0);
+            $this->assertSame(0, FormSubmission::count());
+        }
+    }
+
     public function test_a_transition_outside_the_current_state_is_rejected_without_history(): void
     {
         $this->definition();
@@ -148,6 +283,7 @@ class WorkflowRuntimeTest extends TestCase
                 'roles' => [
                     ['name' => 'aluno'],
                     ['name' => 'svgrad'],
+                    ['name' => 'depto'],
                 ],
                 'places' => $places ?? [
                     ['name' => 'aluno_inicio', 'roles' => ['aluno']],
@@ -187,5 +323,13 @@ class WorkflowUser extends User
     public function hasRole(string|array $roles): bool
     {
         return in_array('aluno', (array) $roles, true);
+    }
+}
+
+class SvgradWorkflowUser extends User
+{
+    public function hasRole(string|array $roles): bool
+    {
+        return in_array('svgrad', (array) $roles, true);
     }
 }

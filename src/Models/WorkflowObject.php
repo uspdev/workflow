@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Uspdev\Forms\Form;
+use Uspdev\Forms\Facades\Forms;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
@@ -278,12 +279,20 @@ class WorkflowObject extends Model
 
             // 3. valida form
             if (is_string($transition->form)) {
-                //todo: precisa validar
-                // handleSubmission deve lançar exception se validação falhar
-                $formSubmission = $transition->form()->handleSubmission($inputData);
-                if(is_array($formSubmission) && $formSubmission['status'] === 'error') {
-                    throw ValidationException::withMessages(['Submissão de formulário da transition é inválida.']);
+                $formDefinition = Forms::definition($transition->form);
+                if ($formDefinition === null) {
+                    throw new \InvalidArgumentException(
+                        "Form definition '{$transition->form}' nao encontrada."
+                    );
                 }
+
+                $formRequest = new Request(array_merge($inputData, [
+                    'form_definition_id' => $formDefinition->getKey(),
+                    'form_key' => (string) $object->getKey(),
+                ]));
+                $formRequest->setUserResolver(fn (): ?User => $user);
+
+                $formSubmission = Forms::submit($formRequest);
             }
 
             if ($transition->bindings->isNotEmpty()) {
