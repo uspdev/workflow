@@ -1,8 +1,9 @@
 <?php
 
-namespace Uspdev\Workflow\Console\Commands   ;
+namespace Uspdev\Workflow\Console\Commands;
 
 use Illuminate\Console\Command;
+use Uspdev\Workflow\Exceptions\WorkflowSyncValidationException;
 use Uspdev\Workflow\Services\WorkflowSyncService;
 
 class WorkflowSync extends Command
@@ -24,29 +25,26 @@ class WorkflowSync extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(): int
     {
         // Pega o arquivo passado na option --path.
         // Caso não esteja definido, pega o diretório padrão de armazenamento em uspdev-workflow.php
         $path = $this->option('path') ?: config('uspdev-workflow.storagePath');
-        $this->info('Sicnronizando workflows do caminho: ' . $path);
+        $this->info('Sincronizando workflows do caminho: ' . $path);
 
-        // Chama o serviço de sincronizar no caminho especificado
-        $result = app(WorkflowSyncService::class)->workflow_sync($path);
+        try {
+            app(WorkflowSyncService::class)->sync($path);
+        } catch (WorkflowSyncValidationException $exception) {
+            $this->error('Falha ao sincronizar as definições:');
+            foreach ($exception->errors() as $error) {
+                $this->line(" - {$error}");
+            }
 
-        // Caso a sincronização tenha sido bem sucedida
-        if($result)
-        {
-            $this->line('Sincronização bem sucedida !');
+            return self::FAILURE;
         }
 
-        // Se a sincronização falhar
-        else
-        {
-            $this->line('Falha ao sincronizar -- Caminho não é diretório nem arquivo existente!');
-        }
+        $this->info('Sincronização bem-sucedida.');
 
-        // Retorna (para uso dentro do código, como por exemplo em WorkflowBackupController.php, l:224)
-        return $result;
+        return self::SUCCESS;
     }
 }

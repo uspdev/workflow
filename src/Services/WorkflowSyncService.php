@@ -2,106 +2,262 @@
 
 namespace Uspdev\Workflow\Services;
 
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Facades\DB;
+use JsonException;
+use Throwable;
+use Uspdev\Forms\FormsManager;
+use Uspdev\Workflow\Contracts\RoleResolver;
+use Uspdev\Workflow\DTO\WorkflowDefinitionData;
+use Uspdev\Workflow\DTO\WorkflowDefinitionImport;
+use Uspdev\Workflow\Enums\WorkflowStatus;
+use Uspdev\Workflow\Exceptions\InvalidWorkflowDefinitionException;
+use Uspdev\Workflow\Exceptions\WorkflowSyncValidationException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 
 class WorkflowSyncService
 {
+    public function __construct(
+        private readonly Container $container,
+        private readonly FormsManager $forms,
+    ) {}
 
     /**
-     * Sincroniza um arquivo de backup (Persiste a definição no banco de dados)
-     * @param string $filepath
-     * @return void
+     * Lê, valida e persiste atomicamente todas as definições encontradas.
+     *
+     * @throws WorkflowSyncValidationException
      */
-    private function sync_file(string $filepath)
-    {   
-        // Recupera a definição do workflow salva no backup (em formato .json)
-        $json_encoded = file_get_contents($filepath);
+    public function sync(string $path): bool
+    {
+        [$inputs, $errors] = $this->readInputs($path);
+        $imports = $this->parseAndValidate($inputs, $errors);
 
-        // Decodifica para um array associativo
-        $decoded_json = json_decode($json_encoded, true);
+        if ($errors !== []) {
+            throw new WorkflowSyncValidationException($errors);
+        }
 
-        // Busca a definição pelo nome e atualiza caso exita.
-        // Se não, cria uma nova definição com as informações do arquivo
-        WorkflowDefinition::updateOrCreate(
-            ['name' => $decoded_json['name']], 
-            [
-                'name' => $decoded_json['name'],
-                'description' => $decoded_json['description'],
-                'definition' => $decoded_json,
-            ]);
+        DB::transaction(function () use ($imports): void {
+            foreach ($imports as $import) {
+                $definition = $import->persistenceAttributes();
+
+                if ($import->status === WorkflowStatus::PUBLISHED) {
+                    WorkflowDefinition::query()
+                        ->where('name', $definition['name'])
+                        ->where('version', '!=', $definition['version'])
+                        ->where('status', WorkflowStatus::PUBLISHED->value)
+                        ->update([
+                            'status' => WorkflowStatus::ARCHIVED->value,
+                            'published_at' => null,
+                        ]);
+                }
+
+                $workflowDefinition = WorkflowDefinition::firstOrNew([
+                    'name' => $definition['name'],
+                    'version' => $definition['version'],
+                ]);
+
+                $wasPublished = $workflowDefinition->exists
+                    && $workflowDefinition->getRawOriginal('status') === WorkflowStatus::PUBLISHED->value
+                    && $workflowDefinition->published_at !== null;
+
+                $workflowDefinition->fill([
+                    'description' => $definition['description'],
+                    'definition' => $definition['definition'],
+                    'status' => $definition['status'],
+                    'published_at' => $import->status === WorkflowStatus::PUBLISHED
+                        ? ($wasPublished ? $workflowDefinition->published_at : now())
+                        : null,
+                ]);
+                $workflowDefinition->save();
+            }
+        });
+
+        return true;
     }
 
     /**
-     * Sincroniza todo um diretório de backup
-     * @param string $dir_path
-     * @return void
+     * Compatibilidade com consumidores existentes do serviço.
+     *
+     * @throws WorkflowSyncValidationException
      */
-    private function sync_dir(string $dir_path)
+    public function workflow_sync(string $path): bool
     {
-        // Recupera todos os backups existentes no diretório especificado
-        $all_files = scandir($dir_path);
+        return $this->sync($path);
+    }
 
-        // Vetor auxiliar para recuperar o backup mais recentemente modificado
-        $most_recent_updt = [];
+    /**
+     * @param array<int, array{source: string, definition: array<string, mixed>}> $inputs
+     * @param array<int, string> $errors
+     * @return array<int, WorkflowDefinitionImport>
+     */
+    private function parseAndValidate(array $inputs, array &$errors): array
+    {
+        $imports = [];
+        $identities = [];
+        $publishedNames = [];
+        $resolvedForms = [];
+        $resolvedRoles = [];
+        $roleResolver = null;
+        $roleResolverFailure = null;
 
-        // Percorre todos os arquivos existentes no diretório
-        foreach($all_files as  $filename)
-        {
-            if(str_contains($filename,'.json'))
-            {
-                
-                // Recupera o nome da definição do backup
-                $curr_def = explode('@',$filename)[0];
+        foreach ($inputs as $input) {
+            $source = $input['source'];
+            $valid = true;
 
-                // Remonta o caminho completo do arquivo
-                $filepath = $dir_path . '/' . $filename;
+            try {
+                $import = WorkflowDefinitionImport::fromArray($input['definition']);
+                $definitionData = $import->definition;
+            } catch (InvalidWorkflowDefinitionException $exception) {
+                $valid = false;
+                foreach ($exception->errors() as $error) {
+                    $errors[] = "{$source}: {$error}";
+                }
+                $partial = $exception->partial();
+                $import = $partial instanceof WorkflowDefinitionImport ? $partial : null;
+                $definitionData = $import?->definition;
+                if ($partial instanceof WorkflowDefinitionData) {
+                    $definitionData = $partial;
+                }
+                if (!$definitionData instanceof WorkflowDefinitionData) {
+                    continue;
+                }
+            }
 
-                // Se ainda não existe a chave, cria e associa ao caminho atual
-                if(!array_key_exists($curr_def,$most_recent_updt))
-                {
-                    $most_recent_updt[$curr_def] = $filepath;
+            if ($valid) {
+                $identity = "{$import->definition->name}@{$import->version}";
+                if (isset($identities[$identity])) {
+                    $errors[] = "{$source}: definição duplicada '{$identity}' na mesma execução (também em {$identities[$identity]}).";
+                } else {
+                    $identities[$identity] = $source;
                 }
 
-                /* 
-                    Se existe, e o tempo de modificação do elemento contido no vetor for menor que o do arquivo atual (significa que a última modificação do contido foi anterior à do arquivo atual), faz a substituição
-                */
-                elseif(filemtime($most_recent_updt[$curr_def]) < filemtime($filepath))
-                {
-                    $most_recent_updt[$curr_def] = $filepath;
+                if ($import->status === WorkflowStatus::PUBLISHED) {
+                    $name = $import->definition->name;
+                    if (isset($publishedNames[$name]) && $publishedNames[$name] !== $import->version) {
+                        $errors[] = "{$source}: mais de uma versão de '{$name}' foi marcada como 'published' na mesma execução.";
+                    } else {
+                        $publishedNames[$name] = $import->version;
+                    }
                 }
+            }
+
+            foreach ($definitionData->referencedForms() as $form) {
+                if (!array_key_exists($form, $resolvedForms)) {
+                    try {
+                        $resolvedForms[$form] = $this->forms->definition($form) !== null;
+                    } catch (Throwable $exception) {
+                        $resolvedForms[$form] = $exception;
+                    }
+                }
+
+                $resolved = $resolvedForms[$form];
+                if ($resolved instanceof Throwable) {
+                    $errors[] = "{$source}: não foi possível resolver o formulário '{$form}': {$resolved->getMessage()}";
+                } elseif (!$resolved) {
+                    $errors[] = "{$source}: referência ao formulário inexistente '{$form}'.";
+                }
+            }
+
+            $roles = $definitionData->referencedRoles();
+            if ($roles !== []) {
+                if (!$this->container->bound(RoleResolver::class)) {
+                    $errors[] = "{$source}: o resolver de roles não foi fornecido pelo consumidor.";
+                } else {
+                    if ($roleResolver === null && $roleResolverFailure === null) {
+                        try {
+                            $roleResolver = $this->container->make(RoleResolver::class);
+                        } catch (Throwable $exception) {
+                            $roleResolverFailure = $exception;
+                        }
+                    }
+
+                    if ($roleResolverFailure instanceof Throwable) {
+                        $errors[] = "{$source}: falha ao carregar o resolver de roles: {$roleResolverFailure->getMessage()}";
+                    } else {
+                        foreach ($roles as $role) {
+                            if (!array_key_exists($role, $resolvedRoles)) {
+                                try {
+                                    $resolvedRoles[$role] = $roleResolver->exists($role);
+                                } catch (Throwable $exception) {
+                                    $resolvedRoles[$role] = $exception;
+                                }
+                            }
+
+                            $resolved = $resolvedRoles[$role];
+                            if ($resolved instanceof Throwable) {
+                                $errors[] = "{$source}: falha do resolver ao validar a role '{$role}': {$resolved->getMessage()}";
+                            } elseif (!$resolved) {
+                                $errors[] = "{$source}: role inexistente '{$role}'.";
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($valid) {
+                $imports[] = $import;
             }
         }
 
-        // Para cada elemento dentro do vetor de 'mais recentemente atualizado', sincroniza o arquivo de backup
-        foreach($most_recent_updt as $to_restore)
-        {
-            $this->sync_file($to_restore);
-        }
+        return $imports;
     }
 
     /**
-     * Sincroniza o arquivo/diretório no arquivo passado.
-     * @param string $path
-     * @return \Illuminate\Http\RedirectResponse
+     * @return array{0: array<int, array{source: string, definition: array<string, mixed>}>, 1: array<int, string>}
      */
-    public function workflow_sync(string $path): bool
-    {   
-        // Caso seja um diretório
-        if(is_dir($path))
-        {
-            $this->sync_dir($path);
-        }
-        
-        // Caso seja arquivo
-        elseif(is_file($path))
-        {
-            $this->sync_file($path);
+    private function readInputs(string $path): array
+    {
+        if (!is_file($path) && !is_dir($path)) {
+            return [[], ["Caminho de sincronização inexistente ou inválido: {$path}"]];
         }
 
-        // Retorna falso caso o caminho passado seja inválido
-        else {return false;}
+        $files = is_file($path) ? [$path] : $this->jsonFiles($path);
+        if ($files === []) {
+            return [[], ["Nenhuma definição JSON foi encontrada em: {$path}"]];
+        }
 
-        // Retorna verdadeiro caso o caminho passado seja válido (e tenha sincronizado normalmente)
-        return true;
+        $inputs = [];
+        $errors = [];
+        foreach ($files as $file) {
+            try {
+                $contents = file_get_contents($file);
+                if ($contents === false) {
+                    $errors[] = "{$file}: não foi possível ler o arquivo.";
+                    continue;
+                }
+
+                $definition = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($definition) || array_is_list($definition)) {
+                    $errors[] = "{$file}: a raiz da definição deve ser um objeto JSON.";
+                    continue;
+                }
+
+                $inputs[] = ['source' => $file, 'definition' => $definition];
+            } catch (JsonException $exception) {
+                $errors[] = "{$file}: JSON inválido: {$exception->getMessage()}";
+            } catch (Throwable $exception) {
+                $errors[] = "{$file}: falha ao ler a definição: {$exception->getMessage()}";
+            }
+        }
+
+        return [$inputs, $errors];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function jsonFiles(string $directory): array
+    {
+        $files = [];
+        foreach (scandir($directory) ?: [] as $filename) {
+            $path = $directory . DIRECTORY_SEPARATOR . $filename;
+            if (is_file($path) && strtolower(pathinfo($filename, PATHINFO_EXTENSION)) === 'json') {
+                $files[] = $path;
+            }
+        }
+
+        sort($files);
+
+        return $files;
     }
 }

@@ -5,6 +5,7 @@ namespace Uspdev\Workflow\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Command\Command;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use File;
 
@@ -224,7 +225,7 @@ class WorkflowBackupController extends Controller
         $result = Artisan::call('workflow:sync', ['--path' => $filepath]);
 
         // Retorna uma mensagem de sucesso.
-        if($result)
+        if($result === Command::SUCCESS)
         {   
             return redirect()->back()->with('alert-success','Backup ' . $filename . ' restaurado com sucesso');
         }
