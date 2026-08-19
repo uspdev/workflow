@@ -11,11 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('workflow_definitions', function (Blueprint $table) { 
-            $table->string('name')->primary();  // Nome da definição; Atua como chave primária
-            $table->string('description');      // Descrição da definição
-            $table->json('definition');         // Definição do worklfow (formato .json)
-            $table->timestamps();               // Momento em que foi criado e/ou atualizado
+        Schema::create('workflow_definitions', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->json('definition');
+            $table->unsignedInteger('version')->default(1);
+            $table->string('status')->nullable(); //enum WorkflowStatus
+            $table->timestamp('published_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['name', 'version']);
         });
     }
 

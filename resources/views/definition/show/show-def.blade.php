@@ -42,7 +42,7 @@
   </div>
   <div class="d-flex align-items-center ">
     <h1 class="mb-4 ml-2">Detalhes do workflow {{ $workflowDefinitionData['definitionName'] }}</h1>
-    <a href="{{ route('workflows.editDefinition', $workflowDefinitionData['definitionName']) }}"
+    <a href="{{ route('workflows.editDefinition', ['definitionName' =>$workflowDefinitionData['definitionName'], 'version' => $workflowDefinitionData['version']]) }}"
       class="btn btn-warning btn-sm mb-3 ml-4">Editar workflow</a>
   </div>
   <div class="row ml-2">

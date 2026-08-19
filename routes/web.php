@@ -10,14 +10,16 @@ Route::group(['prefix' => config('uspdev-workflow.prefix'), 'middleware' => ['we
     Route::get('/createdefinition', [WorkflowController::class, 'createDefinition'])->name('workflows.create-definition');
     Route::post('/createdefinition', [WorkflowController::class, 'storeDefinition'])->name('workflows.store-definition');
     Route::get('/listdefinitions', [WorkflowController::class, 'listDefinitions'])->name('workflows.list-definitions');
-    Route::get('/definition/{definition}', [WorkflowController::class, 'showDefinition'])->name('workflows.showDefinition');
-    Route::delete('/definition/{definition}', [WorkflowController::class, 'destroyDefinition'])->name('workflows.destroyDefinition');
-    Route::get('/editdefinition/{definition}', [WorkflowController::class, 'editDefinition'])->name('workflows.editDefinition');
+    Route::get('/definition/{definitionName}/{version}', [WorkflowController::class, 'showDefinition'])->name('workflows.showDefinition');
+    Route::delete('/definition/remove/{definitionName}/{version}', [WorkflowController::class, 'destroyDefinition'])->name('workflows.destroyDefinition');
+    Route::get('/editdefinition/{definitionName}/{version}', [WorkflowController::class, 'editDefinition'])->name('workflows.editDefinition');
     Route::post('/updatedefinition/', [WorkflowController::class, 'updateDefinition'])->name('workflows.updateDefinition');
     Route::get('/exportdefinition/{definitionName}',[WorkflowController::class,'exportDefinition'])->name('workflows.exportDefinition');
+    Route::get('/definition/publish/{definitionName}/{version}',[WorkflowController::class,'publishDefinition'])->name('workflows.publishDefinition');
+    Route::get('/definition/draft/{definitionName}/{version}',[WorkflowController::class,'draftDefinition'])->name('workflows.draftDefinition');
 
     Route::get('/viewcreateobject', [WorkflowController::class, 'viewCreateObject'])->name('workflows.viewCreateObject');
-    Route::get('/createobject/{definitionName}', [WorkflowController::class, 'createObject'])->name('workflows.createObject');
+    Route::get('/createobject/{definitionName}/{version}', [WorkflowController::class, 'createObject'])->name('workflows.createObject');
     Route::post('/createobject/{definitionName}', [WorkflowController::class, 'submitForm']);
     Route::get('/object/{id}', [WorkflowController::class, 'showObject'])->name('workflows.showObject');
     Route::get('/object/{id}/form/{transition}', [WorkflowController::class, 'showForm'])->name('workflows.showForm');

@@ -1,8 +1,10 @@
-# Definição do campo `definition` da tabela `workflow_definitions`
+# Definição da estrutura de um workflow 
+
+Armazenado no campo WorkflowDefinition->definition
 
 ## Descrição
 
-`definition`: json contendo: `name`, `label`, `description`, `initial_marking` (array), `roles`, `places`, `transitions`
+`definition`: json contendo: `name`, `label`, `description`, `initial_places` (array), `roles`, `places`, `transitions`
 
 ---
 
@@ -18,6 +20,9 @@ Lista de roles disponíveis no workflow.
 | label  |                 |
 | source | opt             |
 
+
+// todo: mudar nome source para binding. fica mais compatível com bindings do transitions
+
 ### Descrição dos campos
 
 **source**
@@ -28,7 +33,6 @@ Lista de roles disponíveis no workflow.
 * Roles com source são dinâmicas e resolvidas a partir dos dados da instância do workflow.
 
 ---
-
 ## places
 
 ### Campos
@@ -53,7 +57,7 @@ Lista de roles disponíveis no workflow.
 | tos           | array             |
 | form          | string|false, opt |
 | bindings      | array, opt        |
-| notifications | object, opt       |
+| notifications | array, opt        |
 
 ### Descrição dos campos
 
@@ -70,7 +74,7 @@ Lista de roles disponíveis no workflow.
 
 * `form=false` -> força não usar mesmo que exista o default
 
-**notifications** (default = roles de `tos`)
+**notifications** (default = roles definidas em `tos`)
 
 Campos:
 
@@ -96,15 +100,32 @@ Campos:
 * adiciona emails a serem notificados
 
 ---
+### DTOs - Data transfer object 
 
-# Exemplo de `definition`
+Estrutura de DTOs. O DTO possui "sub-DTO".
 
-```json id="a5efbc"
+Todos DTOs devem possuir `fromArray`, `toArray` e `validate`.
+
+- WorkflowDefinitionData ✅
+    - RoleDefinition
+    - PlaceDefinition
+    - TransitionDefinition ✅
+        - NotificationDefinition
+        - BindingDefinition
+        - métodos: 
+            - resolveNotificationDestinations
+            - form
+
+---
+### Exemplo de `definition`
+
+```json
 {
   "name": "solicitacao_simples",
+  
   "label": "Solicitação Simples",
 
-  "initial_marking": ["rascunho"],
+  "initial_places": ["rascunho"],
 
   "roles": [
     {"name": "depto", "label": "Departamento"},
@@ -126,7 +147,6 @@ Campos:
       "from": "rascunho",
       "tos": ["analise"]
     },
-
     {
       "name": "tr_aprovar",
       "label": "Aprovar solicitação",
@@ -137,14 +157,15 @@ Campos:
         "append_roles": ["secretaria"]
       }
     },
-
     {
       "name": "tr_rejeitar",
       "label": "Solicitar correção",
       "from": "analise",
       "tos": ["rascunho"],
       "form": "parecer_final",
-      "bindings": [{"attribute": "analista", "field": "form.user_codpes", "resolver": "user_by_codpes"}],
+      "bindings": [
+        {"attribute": "analista", "from": "form.user_codpes", "resolver": "user_by_codpes"}
+      ],
       "notifications": {
         "append_roles": ["usuario"]
       }
@@ -159,8 +180,11 @@ Campos:
 
 * Resolver é um método
 
-```php id="7c6d11"
+```php
 Workflow::resolver('user_by_codpes', function ($value) {
     return User::where('codpes', $value)->first();
 });
 ```
+
+## Notifications
+

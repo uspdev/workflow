@@ -5,6 +5,7 @@ namespace Uspdev\Workflow\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Command\Command;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use File;
 
@@ -19,7 +20,7 @@ class WorkflowBackupController extends Controller
     {
         $workflowDefinitions = WorkflowDefinition::all();
 
-        return view('uspdev-workflow::show.list-bckps', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'backup']);
+        return view('uspdev-workflow::definition.backups.list-bckps', ['workflowDefinitions' => $workflowDefinitions, 'activeTab' => 'backup']);
     }
 
     /**
@@ -38,8 +39,8 @@ class WorkflowBackupController extends Controller
             mkdir($file_dir,0777);
         }
 
-        // Forma o caominho do arquivo na forma defname@horariocriado.json
-        $file_path = $file_dir . '/' . $workflowDefinition['name'] . '@' . now()->format('d-m-Y_H:i:s') . '.json';
+        // Forma o caminho do arquivo na forma defname@horariocriado.json
+        $file_path = $file_dir . '/' . $workflowDefinition->name . $workflowDefinition->version . '@' . now()->format('d-m-Y_H:i:s') . '.json';
 
         // Cria o arquivo para escrita
         try
@@ -116,7 +117,7 @@ class WorkflowBackupController extends Controller
             $time_data[$created_time] = $last_mod_time;
         }
 
-        return view('uspdev-workflow::show.list-def-bckps', ['workflowDefinition' => $workflowDefinition, 'time_data' => $time_data]);
+        return view('uspdev-workflow::definition.backups.list-def-bckps', ['workflowDefinition' => $workflowDefinition, 'time_data' => $time_data]);
     }
     
     /**
@@ -224,7 +225,7 @@ class WorkflowBackupController extends Controller
         $result = Artisan::call('workflow:sync', ['--path' => $filepath]);
 
         // Retorna uma mensagem de sucesso.
-        if($result)
+        if($result === Command::SUCCESS)
         {   
             return redirect()->back()->with('alert-success','Backup ' . $filename . ' restaurado com sucesso');
         }

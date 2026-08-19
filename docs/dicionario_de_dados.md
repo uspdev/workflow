@@ -2,11 +2,12 @@ Segue apenas com padronização de formatação em Markdown, sem alterar o conte
 
 # Tabelas
 
-## workflow_definitions
+-------------------------------------------
+## workflow_definitions ✅
 
 Contém as definições de workflows do sistema.
 
-### Campos
+### Campos (migration/fillable/casts/relacionamentos)
 
 | Campo        | Tipo/Observação       |
 | ------------ | --------------------- |
@@ -43,12 +44,11 @@ Contém as definições de workflows do sistema.
 
 **status**
 
+* Estado do workflow
 * Enum:
-
   * Rascunho
   * Publicado
   * Desativado
-* Para cada name pode existir apenas uma versão com status = publicado
 
 **published_at**
 
@@ -56,30 +56,27 @@ Contém as definições de workflows do sistema.
 
 ### Restrições
 
-* UNIQUE(name, version)
-* Para cada name pode existir apenas uma versão com status = publicado
+* UNIQUE(name, version): Para cada name pode existir apenas uma versão com status = publicado
 * Versões publicadas são imutáveis
-
   * Exceção: alterações exclusivamente em campos de apresentação (labels, descrições e textos exibidos ao usuário) podem ser realizadas sem criação de nova versão, desde que não modifiquem o comportamento do workflow
 * Workflow_objects sempre referenciam uma versão específica da definição
 
----
-
-## workflow_objects
+-------------------------------------------
+## workflow_objects ✅
 
 Contém as instâncias de workflow.
 
 ### Campos
 
-| Campo                  | Tipo/Observação                             |
-| ---------------------- | ------------------------------------------- |
-| id                     | PK                                          |
-| workflow_definition_id | FK                                          |
-| object_type, object_id | MORPH                                       |
-| current_places         | JSON                                        |
-| variables              | JSON                                        |
-| created_at             |                                             |
-| updated_at             |                                             |
+| Campo                  | Tipo/Observação          |
+| ---------------------- | ------------------------ |
+| id                     | PK                       |
+| workflow_definition_id | FK                       |
+| object_type, object_id | MORPH                    |
+| current_places         | JSON                     |
+| variables              | JSON                     |
+| created_at             |                          |
+| updated_at             |                          |
 
 ### Descrição dos campos
 
@@ -119,9 +116,9 @@ Contém as instâncias de workflow.
 * current_places deve conter apenas places definidos na workflow_definition referenciada
 * Os dados armazenados em data não devem alterar a estrutura do workflow, apenas parametrizar sua execução
 
----
 
-## workflow_history
+-------------------------------------------
+## workflow_history ✅
 
 Histórico de transições.
 
@@ -168,8 +165,8 @@ Histórico de transições.
 * Cada registro representa uma única execução de transição
 
 
-
-## workflow_role_users
+-------------------------------------------
+## workflow_role_users ✅
 
 Quais usuários podem atuar em cada role do workflow.
 
@@ -193,9 +190,9 @@ Quais usuários podem atuar em cada role do workflow.
 
 * Caso uma role seja removida da definição do workflow, os registros associados poderão ficar órfãos. Necessita de tratamento.
 
----
 
-## workflow_role_emails
+-------------------------------------------
+## workflow_role_emails ✅
 
 Permite associar endereços de e-mail a uma role para fins de notificação.
 

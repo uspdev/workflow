@@ -11,16 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('workflow_objects', function (Blueprint $table) { // workflows
+        Schema::create('workflow_objects', function (Blueprint $table) {
             $table->id();
-            $table->json('state')->nullable();          // Estado atual do workflows (controlado pela aplicação)
-            $table->string('workflow_definition_name'); // Nome da definição referente ao objeto
-            $table->foreign('workflow_definition_name')->references('name')->on('workflow_definitions')->onDelete('cascade');   // Nome do objeto de workflow deve estar na tabela 'workflow_definitions', na coluna 'name'
-
-
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');   // Usuário que criou o objeto
-
-            $table->timestamps();   // Tempo de criação / atualização do objeto
+            $table->foreignId('workflow_definition_id')->constrained()->onDelete('restrict');
+            $table->nullableMorphs('object');
+            $table->json('current_places');
+            $table->json('variables')->nullable(); //variáveis customizadas
+            $table->timestamps();
         });
     }
 
@@ -29,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('workflows');
+        Schema::dropIfExists('workflow_objects');
     }
 };
