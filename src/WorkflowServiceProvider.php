@@ -2,6 +2,7 @@
 
 namespace Uspdev\Workflow;
 
+use Uspdev\Workflow\Console\Commands\WorkflowDemo;
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
 use Uspdev\Workflow\Providers\EventServiceProvider;
@@ -36,6 +37,7 @@ class WorkflowServiceProvider extends ServiceProvider
         // Publica o comando de WorkflowSync
         $this->commands([
             WorkflowSync::class,
+            WorkflowDemo::class,
         ]);
 
         $this->registerInternalResolvers();
