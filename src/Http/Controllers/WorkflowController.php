@@ -81,7 +81,7 @@ class WorkflowController extends Controller
      */
     public function destroyDefinition(string $definitionName, int $version)
     {
-        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef = WorkflowDefinition::loadDefinition($definitionName, $version);
     
         $status = '';
         $message = '';
@@ -100,7 +100,7 @@ class WorkflowController extends Controller
      */
     public function editDefinition(string $definitionName, int $version)
     {
-        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef = WorkflowDefinition::loadDefinition($definitionName, $version);
         
         return view('uspdev-workflow::definition.edit', compact('workflowDef'));
     }
@@ -120,7 +120,7 @@ class WorkflowController extends Controller
 
     public function publishDefinition(string $definitionName, int $version)
     {
-        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef = WorkflowDefinition::loadDefinition($definitionName, $version);
         $workflowDef->publish();
 
         return redirect()->back()->with('success','Definição publicada!');
@@ -128,7 +128,7 @@ class WorkflowController extends Controller
 
     public function draftDefinition(string $definitionName, int $version)
     {
-        $workflowDef = Workflow::loadDefinition($definitionName, $version);
+        $workflowDef = WorkflowDefinition::loadDefinition($definitionName, $version);
         $workflowDef->draft();
 
         return redirect()->back()->with('warning','Definição posta em rascunho!');
@@ -204,7 +204,7 @@ class WorkflowController extends Controller
     public function showObject($id)
     {
         
-        $workflowObjectData = WorkflowObject::obterDadosDoObjeto($id);
+        $workflowObjectData = WorkflowObject::getObjectData($id);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
 
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
@@ -271,32 +271,37 @@ class WorkflowController extends Controller
      */
     private function construirTransicoesAdmin(array $workflowObjectData): array
     {
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        $listaHabilitadas = $workflowObjectData['workflowsTransitions']['enabled'] ?? [];
+
+        $listaHabilitadasName = [];
+        foreach($workflowObjectData['workflowsTransitions']['enabled'] ?? [] as $transicaoHabilitada) 
+        {
+            $listaHabilitadasName[] = $transicaoHabilitada->name;
+        }
+        
         $formularios = $workflowObjectData['forms'] ?? [];
         $usuario = auth()->user();
         $resultado = [];
 
-        foreach ($workflowObjectData['workflowsTransitions']['all'] ?? [] as $nomeTransicao) {
-            $dadosTransicao = $transicoes[$nomeTransicao] ?? [];
-            $temFormulario = collect($formularios)->firstWhere('transition', $nomeTransicao) !== null;
-            $estaHabilitada = in_array($nomeTransicao, $listaHabilitadas, true);
+        foreach ($workflowObjectData['workflowsTransitions']['all'] ?? [] as $Transicao) {
+            $dadosTransicao = $Transicao->toArray();
+            $temFormulario = isset($dadosTransicao['form']) ? true : false;
+            $estaHabilitada = in_array($dadosTransicao['name'], $listaHabilitadasName, true);
+
+            $roles = array_values($lugares[$dadosTransicao['from']]['role'] ?? []);
+            
+            $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
+
             $temPermissao = false;
 
-            if ($estaHabilitada) {
-                $estadoOrigem = $dadosTransicao['from'] ?? null;
-                $valoresPapeis = $estadoOrigem ? array_values($lugares[$estadoOrigem]['role'] ?? []) : [];
-                foreach ($valoresPapeis as $papel) {
-                    if (($usuario && $usuario->hasRole($papel)) || Gate::allows('admin')) {
-                        $temPermissao = true;
-                        break;
-                    }
-                }
+            if ($estaHabilitada) 
+            {
+                $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
+                $temPermissao = $has_role || Gate::allows('admin');    
             }
 
-            $resultado[$nomeTransicao] = [
-                'label' => $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($nomeTransicao)),
+            $resultado[$dadosTransicao['name']] = [
+                'label' => $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($dadosTransicao['name'])),
                 'temFormulario' => $temFormulario,
                 'estaHabilitada' => $estaHabilitada,
                 'temPermissao' => $temPermissao,
@@ -500,15 +505,17 @@ class WorkflowController extends Controller
      * @param mixed $id
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function applyTransition(Request $request, $id)
+    public function applyTransition(Request $request, int $id)
     {
-        $workflowObjectId = Workflow::aplicarTransition($id, $request->input('transition'), $request->input('workflowDefinitionName'));
+        // dd($request);
+        $workflow_object = WorkflowObject::findOrFail($id);
+        $workflow_object->apply($request->input('transition'), [], Auth()->user());
 
-        if ($workflowObjectId == 0) {
+        if ($workflow_object->id == 0) {
             return redirect()->route('workflows.createObject', ['definitionName' => $request->input('workflowDefinitionName')]);
         }
 
-        return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
+        return redirect()->route('workflows.showObject', ['id' => $workflow_object->id]);
     }
 
     /**
