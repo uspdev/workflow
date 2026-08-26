@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Uspdev\Forms\Form;
 use Uspdev\Forms\Facades\Forms;
+use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
@@ -71,23 +72,29 @@ class WorkflowObject extends Model
     private function buildEnabledForms()
     {
         $enabledForms = [];
+        
         foreach ($this->enabledTransitions() as $transition) 
         {
-            $form = $transition->form();
-            if($form)
+            $transition_form = $transition->form();
+            if($transition_form)
             {
-                $form->key = $this->id;
-                $formHtml = $form->generateHtml();
-                $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
-                $statesString = implode(', ', array_keys($this->current_places));
-                $formHtml = str_replace("place_name", $statesString, $formHtml);
-                $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                $form = Forms::definition($transition_form->name, $transition_form->version);
+                // TODO - NÃO FUNCIONA COM NOVA VERSÃO DO FORMS - ARRUMAR LOGO
+                if($form)
+                    {
+                        $form->key = $this->id; 
+                        $formHtml = $form->render();
+                        $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
+                        $statesString = implode(', ', array_keys($this->current_places));
+                        $formHtml = str_replace("place_name", $statesString, $formHtml);
+                        $formHtml = str_replace("transition_name", $transition->name, $formHtml);
 
-                $formData['transition'] =  $transition;
-                $formData['html'] =  $formHtml;
+                        $formData['transition'] =  $transition;
+                        $formData['html'] =  $formHtml;
 
-                $enabledForms[] = $formData;
-                
+                        $enabledForms[] = $formData;
+                        
+                    }
             }
         }
 
@@ -145,7 +152,9 @@ class WorkflowObject extends Model
      */
     private function viewableSubmissions(Form $form)
     {
-        $formSubmissions = $form->listSubmission();
+        /** @var FormDefinition */
+        $formDefinition = $form->definition;
+        $formSubmissions = $formDefinition->formSubmissions()->get();
         if (!Gate::allows('admin')) 
         {
             $formSubmissions = $formSubmissions->filter(function ($submission){
@@ -235,7 +244,9 @@ class WorkflowObject extends Model
         $title = $workflowDefinition->definition['label'] ?? $workflowDefinition->name;
         $activities = SELF::obterAtividades($workflowObject->id);
         
-        $formSubmissions = $workflowObject->viewableSubmissions(new Form(['key' => $workflowObject->id]));
+        // $formSubmissions = $workflowObject->viewableSubmissions(new Form(['key' => $workflowObject->id]));
+
+        $formSubmissions = null;
 
         $workflowObjectData['workflowObject'] = $workflowObject;
         $workflowObjectData['workflowDefinition'] = $workflowDefinition;
@@ -243,7 +254,7 @@ class WorkflowObject extends Model
         $workflowObjectData['forms'] = $forms;
         $workflowObjectData['name'] = $title;
         $workflowObjectData['activities'] = $activities;
-        $workflowObjectData['formSubmissions'] = collect($formSubmissions);
+        $workflowObjectData['formSubmissions'] = collect($formSubmissions) ?? collect([]);
         
         return $workflowObjectData;
     }
@@ -411,10 +422,10 @@ class WorkflowObject extends Model
         if ($roles === []) {
             return true;
         }
-
+        
         return $user !== null
             && method_exists($user, 'hasRole')
-            && $user->hasRole($roles);
+            && ($user->hasAnyRole(array_values($roles)) || Gate::allows('admin'));
     }
 
     /**
