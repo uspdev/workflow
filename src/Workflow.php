@@ -487,7 +487,7 @@ class Workflow
             throw new \Exception("Workflow definition not found: $definitionName");
         }
         
-        return WorkflowObject::createObject($workflow_def, $model);
+        return WorkflowDefinition::createObject($definitionName, $model);
     }
 
 }
