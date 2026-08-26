@@ -56,16 +56,7 @@ class WorkflowDefinition extends Model
 
         foreach($roles as $roleData)
         {
-            /** @var Role */
-            $role = Role::firstOrCreate(['name' => $roleData['name']]);
-
-            /** @var Permission */
-            $permission = Permission::firstOrCreate(['name' => $roleData['name']]);
-
-            if(!$role->hasPermissionTo($permission))
-            {
-                $role->givePermissionTo($permission);
-            }
+            Role::firstOrCreate(['name' => $roleData['name']]);
         }
     }
 
@@ -79,7 +70,6 @@ class WorkflowDefinition extends Model
         foreach($roles as $roleData)
         {
             Role::where(['name' => $roleData['name']])->delete();
-            Permission::where(['name' => $roleData['name']])->delete();
         }
     }
 
@@ -100,6 +90,7 @@ class WorkflowDefinition extends Model
         $newDef->definition = json_decode($request->input('definition'), true);
         $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
+        $newDef->deployRoles();
         $newDef->save();
 
         return $newDef;
@@ -294,7 +285,7 @@ class WorkflowDefinition extends Model
      * @param int $version
      * @return WorkflowDefinition|null
      */
-    public static function loadDef(string $definitionName, int $version = null): ?WorkflowDefinition
+    public static function loadDefinition(string $definitionName, int $version = null): ?WorkflowDefinition
     {
         if(isset($version)) 
         {
@@ -309,7 +300,7 @@ class WorkflowDefinition extends Model
     }
     public static function createObject(string $definitionName, Model $model): WorkflowObject
     {
-        $workflowDefinition = SELF::loadDef($definitionName);
+        $workflowDefinition = SELF::loadDefinition($definitionName);
 
         $variables_arr = [];
 
@@ -326,7 +317,7 @@ class WorkflowDefinition extends Model
         $workflowObject = WorkflowObject::create([
             'workflow_definition_id' => $workflowDefinition->getKey(),
             'object_type' => $model->getMorphClass(),
-            'object_id' => $model->getKey(),
+            'object_id' => $model->getKey() ?? rand(1, 100),
             'current_places' => $workflowDefinition->definition['initial_places'] ?? [],
             'variables' => $variables_arr
         ]);
