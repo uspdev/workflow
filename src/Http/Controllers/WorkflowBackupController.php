@@ -4,6 +4,8 @@ namespace Uspdev\Workflow\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Exception;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command;
 use Uspdev\Workflow\Models\WorkflowDefinition;
@@ -14,9 +16,9 @@ class WorkflowBackupController extends Controller
 
     /**
      * Lista as definições de workflow com as informações sobre os backups
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function backups_index()
+    public function backups_index(): View
     {
         $workflowDefinitions = WorkflowDefinition::all();
 
@@ -26,9 +28,9 @@ class WorkflowBackupController extends Controller
     /**
      * Gera o backup de uma definição de workflow
      * @param WorkflowDefinition $workflowDefinition
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function def_bckp_gen(WorkflowDefinition $workflowDefinition)
+    public function def_bckp_gen(WorkflowDefinition $workflowDefinition): RedirectResponse
     {
         // Recupera o diretório para armazenar os backups do workflow
         $file_dir = config('uspdev-workflow.storagePath');
@@ -67,9 +69,9 @@ class WorkflowBackupController extends Controller
 
     /**
      * Gera o backup de todas as definições persistidas no banco de dados
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function bckp_gen_all()
+    public function bckp_gen_all(): RedirectResponse
     {
         // Recupera todas as definições do banco de dados
         $wrkflw_defs = WorkflowDefinition::all();
@@ -87,9 +89,9 @@ class WorkflowBackupController extends Controller
     /**
      * Lista todos os backups de uma definição
      * @param WorkflowDefinition $workflowDefinition
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function def_bckp_list(WorkflowDefinition $workflowDefinition)
+    public function def_bckp_list(WorkflowDefinition $workflowDefinition): View
     {
         // Recupera o diretório de armazenamento dos backups
         $file_dir = config('uspdev-workflow.storagePath');
@@ -124,9 +126,9 @@ class WorkflowBackupController extends Controller
      * Remove um backup da definição, remontando o nome através do nome da definição e do tempo de criação do backup
      * @param WorkflowDefinition $workflowDefinition
      * @param string $created_time
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function remove_bckp(WorkflowDefinition $workflowDefinition, string $created_time)
+    public function remove_bckp(WorkflowDefinition $workflowDefinition, string $created_time): RedirectResponse
     {
         // Remonta o tempo de criação para voltar ao formato Y-m-d_H:i:s
         $created_time = str_replace(' - ','_',$created_time);
@@ -155,9 +157,9 @@ class WorkflowBackupController extends Controller
     /**
      * Remove todos os backups existentes de uma definição
      * @param WorkflowDefinition $workflowDefinition
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function remove_def_bckps(WorkflowDefinition $workflowDefinition)
+    public function remove_def_bckps(WorkflowDefinition $workflowDefinition): RedirectResponse
     {
         // Recupera o diretório em que os backups são salvos
         $file_dir = config('uspdev-workflow.storagePath');
@@ -182,9 +184,9 @@ class WorkflowBackupController extends Controller
     }
     /**
      * Remove todos os backups existentes, de todas as definições
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function remove_all_bckps()
+    public function remove_all_bckps(): RedirectResponse
     {
         // Recupera o diretório em que os arquivos são salvos
         $file_dir = config('uspdev-workflow.storagePath');
@@ -212,9 +214,9 @@ class WorkflowBackupController extends Controller
      * Restaura um backup (persiste no banco de dados)
      * @param WorkflowDefinition $workflowDefinition
      * @param string $created_time
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function restore_backup(WorkflowDefinition $workflowDefinition, string $created_time)
+    public function restore_backup(WorkflowDefinition $workflowDefinition, string $created_time): RedirectResponse
     {
         // Remonta o caminho completo do arquivo
         $file_dir = config('uspdev-workflow.storagePath');
