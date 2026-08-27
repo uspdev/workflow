@@ -17,7 +17,7 @@
               <div class="card-header py-1">
                 <span class="h5">
                   {{ $name }}
-                  @include('partials.codpes-adicionar-btn')
+                  {{-- @include('partials.codpes-adicionar-btn') --}}
                 </span><br>
               </div>
               <div class="card-body py-1">
@@ -26,7 +26,7 @@
                     <span>{{ $user->name }}</span>
                     <span class="hide">
                       @if ($user->codpes != auth()->user()->codpes)
-                        @include('partials.codpes-remover-btn', ['codpes' => $user->codpes])
+                        {{-- @include('partials.codpes-remover-btn', ['codpes' => $user->codpes]) --}}
                       @endif
                     </span>
                   </div>
