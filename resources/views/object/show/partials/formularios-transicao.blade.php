@@ -6,7 +6,7 @@
             <h4 class="mb-3">Formulário da Transição</h4>
             @foreach ($workflowObjectData['forms'] as $formulario)
                 <div class="card mb-3 inline-transition-form d-none"
-                    data-transition="{{ $formulario['transition'] }}">
+                    data-transition="{{ $formulario['transition']->name }}">
                     <div class="card-header">
                         Transição: <strong>@include('uspdev-workflow::object.show.partials.transition-label')</strong>
                     </div>
