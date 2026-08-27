@@ -22,8 +22,8 @@ Route::group(['prefix' => config('uspdev-workflow.prefix'), 'middleware' => ['we
     Route::get('/createobject/{definitionName}/{version}', [WorkflowController::class, 'createObject'])->name('workflows.createObject');
     Route::post('/createobject/{definitionName}', [WorkflowController::class, 'submitForm']);
     Route::get('/object/{id}', [WorkflowController::class, 'showObject'])->name('workflows.showObject');
+    Route::post('/object/{id}', [WorkflowController::class, 'applyTransition'])->name('workflows.showObject'); // TODO - Essa rota e /apply-transition/ fazem a mesma coisa, corrigir isso ai
     Route::get('/object/{id}/form/{transition}', [WorkflowController::class, 'showForm'])->name('workflows.showForm');
-    Route::post('/object/{id}', [WorkflowController::class, 'submitForm'])->name('workflows.showObject');
     Route::get('/showuserobjects', [WorkflowController::class, 'showUserObjects'])->name('workflows.show-user-objects');
     Route::post('/apply-transition/{id}', [WorkflowController::class, 'applyTransition'])->name('workflows.applyTransition');
     Route::delete('/delete-object/{object}', [WorkflowController::class, 'deleteObject'])->name('workflows.delete-object');
