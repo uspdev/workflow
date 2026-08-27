@@ -47,7 +47,7 @@ class WorkflowDefinition extends Model
     ];
 
     /**
-     * Persiste as roles da definião e dá as permissões ncessárias para elas.
+     * Persiste as roles da definição caso ainda não existam
      * @return void
      */
     private function deployRoles()
@@ -56,16 +56,7 @@ class WorkflowDefinition extends Model
 
         foreach($roles as $roleData)
         {
-            /** @var Role */
-            $role = Role::firstOrCreate(['name' => $roleData['name']]);
-
-            /** @var Permission */
-            $permission = Permission::firstOrCreate(['name' => $roleData['name']]);
-
-            if(!$role->hasPermissionTo($permission))
-            {
-                $role->givePermissionTo($permission);
-            }
+            Role::firstOrCreate(['name' => $roleData['name']]);
         }
     }
 
@@ -79,7 +70,6 @@ class WorkflowDefinition extends Model
         foreach($roles as $roleData)
         {
             Role::where(['name' => $roleData['name']])->delete();
-            Permission::where(['name' => $roleData['name']])->delete();
         }
     }
 
@@ -92,6 +82,17 @@ class WorkflowDefinition extends Model
         return WorkflowObject::where(['workflow_definition_id' => $this->id])->get();
     }
 
+    /**
+     * Lida com a atribuição de parâmetros e a consequente persistência da definição de workflow no ]
+     * banco de dados, retornando a instância da mesma.
+     * 
+     * Sempre persiste a definião como DRAFT e como uma versão incrementada da anterior (em casos de 
+     * edição)
+     * 
+     * @param Request $request
+     * @param ?WorkflowDefinition $oldDefinition
+     * @return WorkflowDefinition
+     */
     private static function handleStore(Request $request, ?WorkflowDefinition $oldDefinition): WorkflowDefinition
     {
         $newDef = new self();
@@ -100,13 +101,15 @@ class WorkflowDefinition extends Model
         $newDef->definition = json_decode($request->input('definition'), true);
         $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
+        $newDef->deployRoles();
         $newDef->save();
 
         return $newDef;
     }
 
     /**
-     * Persiste a definição de workflow, vinda através de requisição, no banco de dados, retornando a instância da mesma.
+     * Persiste a definição de workflow, vinda através de requisição, no banco de dados, retornando a 
+     * instância da mesma., em DRAFT
      * @param Request $request
      * @return WorkflowDefinition
      */
@@ -210,8 +213,8 @@ class WorkflowDefinition extends Model
     }
 
     /**
-     * Ele pega o array do banco ($this->definition) e o transforma
-     * no DTO estruturado e validado.
+     * Recupera os dados da definição da maneira formatada em WorkflowDefinitionData
+     * @return WorkflowDefinitionData
      */
     public function getDefinitionData(): WorkflowDefinitionData
     {
@@ -219,7 +222,10 @@ class WorkflowDefinition extends Model
     }
 
     /**
-     * retorna dados do place com o nome fornecido.
+     * Retorna os dados do place desejado
+     * @param string $placeName
+     * @throws InvalidArgumentException
+     * @return PlaceDefinition
      */
     public function place(string $placeName): PlaceDefinition
     {
@@ -291,10 +297,10 @@ class WorkflowDefinition extends Model
      * Retorna null caso a definição desejada não seja encontrada.
      * Caso a versão não seja especificada, a versão publicada será retornada.
      * @param string $definitionName
-     * @param int $version
+     * @param ?int $version
      * @return WorkflowDefinition|null
      */
-    public static function loadDef(string $definitionName, int $version = null): ?WorkflowDefinition
+    public static function _load(string $definitionName, ?int $version = null): ?WorkflowDefinition
     {
         if(isset($version)) 
         {
@@ -307,9 +313,17 @@ class WorkflowDefinition extends Model
         }
         return $workflowDefinition;
     }
+
+    /**
+     * Cria um objeto de workflow baseado na definition de nome especificado
+     * O objeto é criado apenas em definitions que estão PUBLICADAS
+     * @param string $definitionName
+     * @param Model $model
+     * @return WorkflowObject
+     */
     public static function createObject(string $definitionName, Model $model): WorkflowObject
     {
-        $workflowDefinition = SELF::loadDef($definitionName);
+        $workflowDefinition = SELF::_load($definitionName);
 
         $variables_arr = [];
 
@@ -323,10 +337,11 @@ class WorkflowDefinition extends Model
             }
         }
 
+        /** @var WorkflowObject **/
         $workflowObject = WorkflowObject::create([
             'workflow_definition_id' => $workflowDefinition->getKey(),
             'object_type' => $model->getMorphClass(),
-            'object_id' => $model->getKey(),
+            'object_id' => $model->getKey() ?? rand(1, 100),
             'current_places' => $workflowDefinition->definition['initial_places'] ?? [],
             'variables' => $variables_arr
         ]);

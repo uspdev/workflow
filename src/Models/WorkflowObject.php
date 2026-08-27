@@ -12,13 +12,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Uspdev\Forms\Form;
 use Uspdev\Forms\Facades\Forms;
+use Uspdev\Forms\Models\FormDefinition;
+use Uspdev\Forms\Models\FormSubmission;
 use Uspdev\Workflow\DTO\PlaceDefinition;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
-use Uspdev\Workflow\Workflow;
 use Gate;
 use Spatie\Activitylog\Models\Activity;
 
@@ -71,23 +71,28 @@ class WorkflowObject extends Model
     private function buildEnabledForms()
     {
         $enabledForms = [];
+        
         foreach ($this->enabledTransitions() as $transition) 
         {
-            $form = $transition->form();
-            if($form)
+            $transition_form = $transition->form();
+            if($transition_form)
             {
-                $form->key = $this->id;
-                $formHtml = $form->generateHtml();
-                $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
-                $statesString = implode(', ', array_keys($this->current_places));
-                $formHtml = str_replace("place_name", $statesString, $formHtml);
-                $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                $form = Forms::definition($transition_form->name, $transition_form->version);
+                if($form)
+                    {
+                        $form->key = $this->id; 
+                        $formHtml = $form->render();
+                        $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
+                        $statesString = implode(', ', array_keys($this->current_places));
+                        $formHtml = str_replace("place_name", $statesString, $formHtml);
+                        $formHtml = str_replace("transition_name", $transition->name, $formHtml);
 
-                $formData['transition'] =  $transition;
-                $formData['html'] =  $formHtml;
+                        $formData['transition'] =  $transition;
+                        $formData['html'] =  $formHtml;
 
-                $enabledForms[] = $formData;
-                
+                        $enabledForms[] = $formData;
+                        
+                    }
             }
         }
 
@@ -104,12 +109,12 @@ class WorkflowObject extends Model
      *  - Verifica se o 'state' da atividade está ativo no 'place' atual do workflow object
      *  - Encontra (Se possível) o causador da atividade
      * 
-     *  - Formata toda a resposta e retona um array com os dados da atividade;
+     *  - Formata toda a resposta e retorna um array com os dados da atividade;
      * 
      *  @param int $id
-     *  @return Array
+     *  @return Collection<int, array{id: int, description: string, objectId: int, user: string, created_at: string, updated_at: string}>
      */
-    private static function obterAtividades(int $id)
+    private static function obterAtividades(int $id): Collection
     {
         
         $atividades = Activity::where('subject_type', WorkflowObject::class)
@@ -138,66 +143,49 @@ class WorkflowObject extends Model
 
     /**
      * Retorna as submissões de formulário que o usuário têm permissão para ver, a depender do 
-     * estado do objeto de workflow
+     * estado do objeto de workflow e das transitions da definição
      * 
-     * @param Form $form
-     * @return Collection<int, TModel>|\Illuminate\Support\Collection<int, \stdClass>
+     * @param Collection<TransitionDefinition> $transitionDTOs
+     * @return Collection<int, FormSubmission>
      */
-    private function viewableSubmissions(Form $form)
+    private function viewableSubmissions(Collection $transitionDTOs)
     {
-        $formSubmissions = $form->listSubmission();
-        if (!Gate::allows('admin')) 
+        /** @var Collection<int, FormSubmission> */
+        $formSubmissions = collect();
+        foreach($transitionDTOs as $transition)
         {
-            $formSubmissions = $formSubmissions->filter(function ($submission){
-                $workflowDefinition = $this->definition;
-                $transition = $submission['data']['transition'];
-                $to = $workflowDefinition->definition['transitions'][$transition]['tos'];
-                $initial = $workflowDefinition->definition['initial_places'];
-                
-                /**
-                 * Caso o destino da transition não esteja no formato [chave => valor],
-                 * a formata desta maneira.
-                 * 
-                 * Ainda, caso o destino da transition seja um vetor mas, da forma [nomePlace => nomePlace],
-                 * atribui ao vetor '$toWithWeights' os 'nomePlace' e o valor 1, de tal forma que:
-                 * 'toWithWeights' == [nomePlace1 => 1, nomePlace2 => 1, ...].
-                 */
-                if (!is_array($to)) 
-                {
-                    $to = [$to => 1];
-                } 
-                else 
-                {
-                    if (array_values($to) === $to) 
-                    {
-                        $toWithWeights = [];
-                        foreach ($to as $place) 
-                        {
-                            $toWithWeights[$place] = 1;
-                        }
-                        $to = $toWithWeights;
-                    }
-                }
-
-                $enabledTransitions =  $this->enabledTransitions();
-                if (empty($enabledTransitions)) 
-                {
-                    return true;
-                }
-
-                // Verifica se a submissão tem um ou mais places a que se refere
-                $submission_place_arr = array_map('trim',explode(',',$submission['data']['place']));
-                if(count($submission_place_arr) >= 2)
-                {
-                    // Caso ao menos um dos places seja igual ao atual, permite ao usuário ver a submissão de formulário
-                    $curr_places = array_keys($this->current_places);
-                    $intersection = array_intersect($submission_place_arr,$curr_places);
-                }
-
-                return $submission['data']['place'] == $this->current_places || $this->current_places == $to || $submission['data']['place'] == $initial || !empty($intersection);
-            });
+            $form = $transition->form();
+            if($form)
+            {    
+                $formSubmissions = $formSubmissions->concat(Forms::submissions($form->name, $form->version, (string)$this->id));
+            }
         }
 
+        if (!Gate::allows('admin')) 
+        {
+            $formSubmissions = $formSubmissions->filter(function ($submission) use ($transitionDTOs) {
+                $can = false;
+
+                /** @var FormDefinition */
+                $formDef = $submission->formDefinition()->first();
+                
+                // dd($transitionDTOs->where('form', $formDef->name));
+
+                /** @var TransitionDefinition */
+                $ref_transition = $transitionDTOs->where('form', $formDef->name)->first();
+                if(array_intersect($this->current_places, $ref_transition->tos))
+                {
+                    $can = true;
+                };
+
+                return $can;
+            });
+
+            /** @var Collection<int, FormSubmission> */
+            $final_coll = $formSubmissions->isEmpty() ? collect([]) : collect([$formSubmissions->sortByDesc('created_at')->values()->first()]);
+            return $final_coll;
+        }
+        
         return $formSubmissions;
     }
 
@@ -216,9 +204,29 @@ class WorkflowObject extends Model
      *  -- 'activity' - Array de registro de atividades para aquele objeto;
      *  -- 'formSubmissions' - Array de submissões de formulários para aquele objeto;
      * 
-     * @return Array $workflowObjectData
+     * @return array{
+     *  workflowObject: WorkflowObject, 
+     *  workflowDefinition: WorkflowDefinition,
+     *  workflowsTransitions: array{
+     *                              enabled: Collection<int, TransitionDefinition>, 
+     *                              all:Collection<int, TransitionDefinition>, 
+     *                              currentState: array,                         
+     *                              allowed: array
+     *                              }, 
+     *  forms: array<string,TransitionDefinition>, 
+     *  name: string, 
+     *  activities: Collection<int, array{
+     *                                    id: int, 
+     *                                    description: string, 
+     *                                    objectId: int, 
+     *                                    user: string, 
+     *                                    created_at: string, 
+     *                                    updated_at: string
+     *                                    }>, 
+     *  formSubmissions: Collection<int, FormSubmission>
+     * }
      */
-    public static function getObjectData(int $object_id)
+    public static function getObjectData(int $object_id): array
     {
         /** @var WorkflowObject */
         $workflowObject = WorkflowObject::findOrFail($object_id);
@@ -235,29 +243,35 @@ class WorkflowObject extends Model
         $title = $workflowDefinition->definition['label'] ?? $workflowDefinition->name;
         $activities = SELF::obterAtividades($workflowObject->id);
         
-        $formSubmissions = $workflowObject->viewableSubmissions(new Form(['key' => $workflowObject->id]));
-
+        $formSubmissions = $workflowObject->viewableSubmissions($workflowsTransitions['all']);
+        
         $workflowObjectData['workflowObject'] = $workflowObject;
         $workflowObjectData['workflowDefinition'] = $workflowDefinition;
         $workflowObjectData['workflowsTransitions'] = $workflowsTransitions;
         $workflowObjectData['forms'] = $forms;
         $workflowObjectData['name'] = $title;
         $workflowObjectData['activities'] = $activities;
-        $workflowObjectData['formSubmissions'] = collect($formSubmissions);
+        $workflowObjectData['formSubmissions'] = collect($formSubmissions) ?? collect([]);
         
         return $workflowObjectData;
     }
 
     /**
-     * Aplica uma transição no objeto
-     *
-     * ### Etapas
-     * valida a transição
-     * valida permissões
-     * 3. valida form e executa bindings: retorna para UI caso validação falhe
-     * registra workflow_history
-     * executa a transição
-     * notifica quem precisar
+     * Aplica uma transição à este objeto de workflow. A transição é identificada pelo nome e os dados 
+     * necessários são referenciados em inputData.
+     * 
+     * - Verifica se u usuário é permitido a executar a transição no estado atual do objeto
+     * - Valida o formulário da transição e faz a submissão
+     * - Resolve os bindings
+     * - Atualiza o place atual do objeto
+     * - Cria o histório
+     * - Notifica quem precisar
+     * @param string $transitionName
+     * @param array $inputData
+     * @param ?User $user
+     * @throws TransitionNotAllowedException
+     * @throws \InvalidArgumentException
+     * @return bool
      */
     public function apply(string $transitionName, array $inputData = [], ?User $user = null): bool
     {
@@ -411,10 +425,10 @@ class WorkflowObject extends Model
         if ($roles === []) {
             return true;
         }
-
+        
         return $user !== null
             && method_exists($user, 'hasRole')
-            && $user->hasRole($roles);
+            && ($user->hasAnyRole(array_values($roles)) || Gate::allows('admin'));
     }
 
     /**
@@ -486,7 +500,7 @@ class WorkflowObject extends Model
      *  - Caso 'state' seja nulo, retorna um array vazio;
      *  @return array
      */
-    public function getCurrentState()
+    public function getCurrentState(): array
     {
         return $this->current_places ?? [];
     }
@@ -505,7 +519,7 @@ class WorkflowObject extends Model
     /**
      * Retorna o objeto atrelado ao Model referenciado.
      * @param Model $model
-     * @return object|WorkflowObject|null
+     * @return ?WorkflowObject
      */
     public static function from(Model $model): ?WorkflowObject
     {

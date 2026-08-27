@@ -15,10 +15,11 @@
       </div>
     </div>
     <div class="card-body">
-      <table class="table table-bordered table-hover">
+      <table class="table table-bordered table-hover text-center">
         <thead>
           <tr>
             <th>Nome</th>
+            <th>Versão</th>
             <th>Descrição</th>
             <th>Status</th>
             <th>Ações</th>
@@ -30,6 +31,9 @@
               <td>
                 <a href="{{ route('workflows.showDefinition',['definitionName' => $workflowDefinition->name, 'version' => $workflowDefinition->version]) }}">{{ $workflowDefinition->name }}</a>
                 
+              </td>
+              <td>
+                {{ $workflowDefinition->version }}
               </td>
               <td>
                 {{ $workflowDefinition->description }}

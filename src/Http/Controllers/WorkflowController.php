@@ -2,23 +2,24 @@
 
 namespace Uspdev\Workflow\Http\Controllers;
 
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
-use Uspdev\Workflow\Enums\WorkflowStatus;
 use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Workflow;
 use Uspdev\Workflow\Models\WorkflowDefinition;
+
 
 class WorkflowController extends Controller
 {
     /**
      * Redireciona à tela de criação de definições de workflow
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function createDefinition()
+    public function createDefinition(): View
     {
         return view('uspdev-workflow::definition.createDefinition');
     }
@@ -28,9 +29,9 @@ class WorkflowController extends Controller
      * em '$request' listando todas
      * as existentes no final do processo.
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function storeDefinition(Request $request)
+    public function storeDefinition(Request $request): RedirectResponse
     {
         WorkflowDefinition::storeDefinition($request);
 
@@ -39,9 +40,9 @@ class WorkflowController extends Controller
 
     /**
      * Lista todas as definições persistidas no banco de dados
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function listDefinitions()
+    public function listDefinitions(): View
     {
         $workflowDefinitions = WorkflowDefinition::all();
 
@@ -51,9 +52,9 @@ class WorkflowController extends Controller
     /**
      * Exibe os detalhes de uma definição de workflow
      * @param string $definitionName
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function showDefinition(string $definitionName, ?int $version = null)
+    public function showDefinition(string $definitionName, ?int $version = null): View
     {
         $workflowDefinitionData = WorkflowDefinition::obterDadosDaDefinicao($definitionName, $version);
 
@@ -64,9 +65,9 @@ class WorkflowController extends Controller
      * Define o relacionamento entre um usuário e um place específico do workflow,
      * baseados nos dados da requisição '$request'.
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function setUser(Request $request)
+    public function setUser(Request $request): RedirectResponse 
     {
         Workflow::definirUsuarios($request);
 
@@ -77,9 +78,9 @@ class WorkflowController extends Controller
      * Remove a definição de workflow, com o nome referenciado como parâmetro, do banco de dados.
      * @param string $definitionName
      * @param int $version
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function destroyDefinition(string $definitionName, int $version)
+    public function destroyDefinition(string $definitionName, int $version): RedirectResponse
     {
         $workflowDef = Workflow::loadDefinition($definitionName, $version);
     
@@ -96,9 +97,9 @@ class WorkflowController extends Controller
     /**
      * Exibe o formulário para edição da definição com o nome especificado como parâmetro.
      * @param mixed $definitionName
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function editDefinition(string $definitionName, int $version)
+    public function editDefinition(string $definitionName, int $version): View
     {
         $workflowDef = Workflow::loadDefinition($definitionName, $version);
         
@@ -109,16 +110,22 @@ class WorkflowController extends Controller
      * Atualiza uma definição já existente, após as alterações realizadas nela, através de 
      * '$request', persistindo as mudanças no banco de dados.
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function updateDefinition(Request $request)
+    public function updateDefinition(Request $request): RedirectResponse
     {
         $new_ver = WorkflowDefinition::storeDefinition($request);
 
         return redirect()->route('workflows.showDefinition', ['definitionName' => $request->name, 'version' => $new_ver]);
     }
 
-    public function publishDefinition(string $definitionName, int $version)
+    /**
+     * Publica a definição de workflow de nome 'definitionName', com a versão especificada
+     * @param string $definitionName
+     * @param int $version
+     * @return RedirectResponse
+     */
+    public function publishDefinition(string $definitionName, int $version): RedirectResponse
     {
         $workflowDef = Workflow::loadDefinition($definitionName, $version);
         $workflowDef->publish();
@@ -126,7 +133,13 @@ class WorkflowController extends Controller
         return redirect()->back()->with('success','Definição publicada!');
     }
 
-    public function draftDefinition(string $definitionName, int $version)
+    /**
+     * Coloca a definição no estado de rascunho, identificando-a pelo nome e versão
+     * @param string $definitionName
+     * @param int $version
+     * @return RedirectResponse
+     */
+    public function draftDefinition(string $definitionName, int $version): RedirectResponse
     {
         $workflowDef = Workflow::loadDefinition($definitionName, $version);
         $workflowDef->draft();
@@ -136,9 +149,9 @@ class WorkflowController extends Controller
 
     /**
      * Exibe as definições de workflow para que possa criar objetos das que desejar.
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function viewCreateObject()
+    public function viewCreateObject(): View
     {
         $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
         \UspTheme::activeUrl('viewcreateobject');
@@ -152,7 +165,7 @@ class WorkflowController extends Controller
      * @param mixed $definitionName
      * @return RedirectResponse
      */
-    public function createObject(string $definitionName)
+    public function createObject(string $definitionName): RedirectResponse
     {
         $model = new WorkflowDefinition();
 
@@ -163,9 +176,9 @@ class WorkflowController extends Controller
     /**
      * Exibe os objetos de workflow atrelados ao usuário, ou seja, os objetos criados pelo usuário
      * ou objetos nos quais ele têm algum atendimento à fazer.
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function showUserObjects()
+    public function showUserObjects(): View
     {
         \UspTheme::activeUrl('showuserobjects');
 
@@ -185,7 +198,7 @@ class WorkflowController extends Controller
      */
     public function showForm($id, $transition)
     {
-        $workflowObjectData = Workflow::obterDadosDoObjeto($id);
+        $workflowObjectData = WorkflowObject::getObjectData($id);
 
         $selectedForm = collect($workflowObjectData['forms'])->firstWhere('transition', $transition);
 
@@ -198,13 +211,13 @@ class WorkflowController extends Controller
 
     /**
      * Exibe um objeto de workflow, buscado através de seu id.
-     * @param mixed $id
-     * @return \Illuminate\Contracts\View\View
+     * @param int $id
+     * @return View
      */
-    public function showObject($id)
+    public function showObject(int $id): View
     {
         
-        $workflowObjectData = WorkflowObject::obterDadosDoObjeto($id);
+        $workflowObjectData = WorkflowObject::getObjectData($id);
         $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
 
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
@@ -271,32 +284,37 @@ class WorkflowController extends Controller
      */
     private function construirTransicoesAdmin(array $workflowObjectData): array
     {
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        $listaHabilitadas = $workflowObjectData['workflowsTransitions']['enabled'] ?? [];
+
+        $listaHabilitadasName = [];
+        foreach($workflowObjectData['workflowsTransitions']['enabled'] ?? [] as $transicaoHabilitada) 
+        {
+            $listaHabilitadasName[] = $transicaoHabilitada->name;
+        }
+        
         $formularios = $workflowObjectData['forms'] ?? [];
         $usuario = auth()->user();
         $resultado = [];
 
-        foreach ($workflowObjectData['workflowsTransitions']['all'] ?? [] as $nomeTransicao) {
-            $dadosTransicao = $transicoes[$nomeTransicao] ?? [];
-            $temFormulario = collect($formularios)->firstWhere('transition', $nomeTransicao) !== null;
-            $estaHabilitada = in_array($nomeTransicao, $listaHabilitadas, true);
+        foreach ($workflowObjectData['workflowsTransitions']['all'] ?? [] as $Transicao) {
+            $dadosTransicao = $Transicao->toArray();
+            $temFormulario = isset($dadosTransicao['form']) ? true : false;
+            $estaHabilitada = in_array($dadosTransicao['name'], $listaHabilitadasName, true);
+
+            $roles = array_values($lugares[$dadosTransicao['from']]['role'] ?? []);
+            
+            $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
+
             $temPermissao = false;
 
-            if ($estaHabilitada) {
-                $estadoOrigem = $dadosTransicao['from'] ?? null;
-                $valoresPapeis = $estadoOrigem ? array_values($lugares[$estadoOrigem]['role'] ?? []) : [];
-                foreach ($valoresPapeis as $papel) {
-                    if (($usuario && $usuario->hasRole($papel)) || Gate::allows('admin')) {
-                        $temPermissao = true;
-                        break;
-                    }
-                }
+            if ($estaHabilitada) 
+            {
+                $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
+                $temPermissao = $has_role || Gate::allows('admin');    
             }
 
-            $resultado[$nomeTransicao] = [
-                'label' => $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($nomeTransicao)),
+            $resultado[$dadosTransicao['name']] = [
+                'label' => $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($dadosTransicao['name'])),
                 'temFormulario' => $temFormulario,
                 'estaHabilitada' => $estaHabilitada,
                 'temPermissao' => $temPermissao,
@@ -427,6 +445,7 @@ class WorkflowController extends Controller
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
 
         // Percorrer as submissões de formulários, ordenando por data de criação, e construir uma descrição legível
+        
         // do histórico de estados e transições para o usuário
         return collect($workflowObjectData['formSubmissions'] ?? [])
             ->sortByDesc('created_at')
@@ -470,7 +489,7 @@ class WorkflowController extends Controller
                 $titulo = $rotuloTransicao
                     ? $rotuloTransicao
                     : (! empty($descricoesEstado) ? implode(', ', $descricoesEstado) : 'Atualização de solicitação');
-
+                
                 return [
                     'titulo' => $titulo,
                     'detalhe' => $detalhe,
@@ -486,7 +505,7 @@ class WorkflowController extends Controller
 
     public function deleteObject($workflowObjectId)
     {
-        Workflow::deletarWorkflow($workflowObjectId);
+        Workflo::deletarWorkflow($workflowObjectId);
 
         return self::showUserObjects();
     }
@@ -498,52 +517,24 @@ class WorkflowController extends Controller
      * Ao fim, redireciona para a a exibição do objeto no seu novo estado (pós aplicação da transition)
      * @param Request $request
      * @param mixed $id
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function applyTransition(Request $request, $id)
+    public function applyTransition(Request $request, int $id): RedirectResponse
     {
-        $workflowObjectId = Workflow::aplicarTransition($id, $request->input('transition'), $request->input('workflowDefinitionName'));
-
-        if ($workflowObjectId == 0) {
-            return redirect()->route('workflows.createObject', ['definitionName' => $request->input('workflowDefinitionName')]);
-        }
-
-        return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
-    }
-
-    /**
-     * Lida com a submissão de formulários, através da biblioteca Uspdev\Forms, e exibe o objeto
-     * após a submissão.
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function submitForm(Request $request)
-    {
-
-        // Uspdev/Forms valida campos de arquivo por chave simples (ex.: "arquivo"),
-        // mas o HTML do campo file envia em file[arquivo]. Espelha para o formato esperado.
-        // if ($request->hasFile('file')) {
-        //     foreach ((array) $request->file('file') as $fieldName => $uploadedFile) {
-        //         if ($uploadedFile) {
-        //             $request->files->set($fieldName, $uploadedFile);
-        //             $request->request->set($fieldName, $uploadedFile);
-        //         }
-        //     }
-        // }
         
-        $request->merge(['id' => null]);
-        $workflowObjectId = Workflow::enviarFormulario($request);
+        $workflow_object = WorkflowObject::findOrFail($id);
+        $workflow_object->apply($request->input('transition'), $request->all(), Auth()->user());
 
-        return redirect()->route('workflows.showObject', ['id' => $workflowObjectId]);
+        return redirect()->route('workflows.showObject', ['id' => $workflow_object->id]);
     }
 
     /**
      * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
      * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
      * objeto), exibindo-os em uma tela para o usuário.
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
-    public function atendimentos()
+    public function atendimentos(): View
     {
         \UspTheme::activeUrl('equivalencias/atendimentos');
 

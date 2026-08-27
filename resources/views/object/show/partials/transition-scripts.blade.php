@@ -137,6 +137,11 @@
                 $('.transition-btn').on('click', function (e) {
                     var transitionName = $(this).data('transition');
                     var transitionUrl  = $(this).data('url');
+
+                    if(!transitionUrl){
+                        transitionUrl = '{{ route('workflows.applyTransition', ['id' => $workflowObjectData['workflowObject']->id]) }}'
+                    }
+
                     var workflowName   = $(this).data('workflow');
                     var formsContainer = $('#transition-forms-container');
                     var formWrapper    = $('.inline-transition-form[data-transition="' + transitionName + '"]');
