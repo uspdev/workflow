@@ -249,25 +249,38 @@ class WorkflowController extends Controller
     private function construirTransicoesVisiveis(array $workflowObjectData): array
     {
         $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
+        
         $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
         $usuario = auth()->user();
         $resultado = [];
 
-        foreach (array_keys($workflowObjectData['workflowObject']->state ?? []) as $chaveEstado) {
-            $resultado[$chaveEstado] = [];
-            foreach ($transicoes as $nomeTransicao => $dadosTransicao) {
-                if (($dadosTransicao['from'] ?? null) !== $chaveEstado) {
-                    continue;
-                }
+        $formatted_places = [];
+        for($i = 0; $i < sizeof($lugares); $i++)
+        {
+            $formatted_places[$lugares[$i]['name']] = $lugares[$i];
+        }
+
+        foreach ($workflowObjectData['workflowObject']->current_places as $place) 
+        {
+            $curr_trans = array_filter($transicoes, function ($transicao) use ($place) {
+                return $transicao['from'] === $place;
+            });
+            $resultado[$place] = [];
+            
+            foreach ($curr_trans as $transicao) 
+            {
                 $temPapel = false;
-                foreach (array_values($lugares[$chaveEstado]['role'] ?? []) as $papel) {
-                    if (($usuario && $usuario->hasRole($papel)) || Gate::allows('admin')) {
+                foreach (array_values($formatted_places[$place]['roles'] ?? []) as $papel) 
+                { 
+                    if (isset($usuario) && $usuario->hasRole($papel)) 
+                    {
                         $temPapel = true;
                         break;
                     }
                 }
-                if ($temPapel) {
-                    $resultado[$chaveEstado][$nomeTransicao] = $dadosTransicao;
+                if ($temPapel)
+                {
+                    $resultado[$place][$transicao['name']] = $transicao;
                 }
             }
         }
