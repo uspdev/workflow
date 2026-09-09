@@ -52,7 +52,7 @@ class WorkflowBackupController extends Controller
         catch(Exception $e)
         {
             print("Erro ao abrir arquivo: " . $e);
-            return;
+            return redirect()->back()->with('alert-danger','Erro ao gerar backup de ' . $workflowDefinition->name . ' => ' . $e);
         }
 
         // Gera o json a partir da definição do workflow

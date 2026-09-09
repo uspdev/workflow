@@ -341,7 +341,7 @@ class WorkflowDefinition extends Model
         $workflowObject = WorkflowObject::create([
             'workflow_definition_id' => $workflowDefinition->getKey(),
             'object_type' => $model->getMorphClass(),
-            'object_id' => $model->getKey() ?? rand(1, 100),
+            'object_id' => $model->getKey(),
             'current_places' => $workflowDefinition->definition['initial_places'] ?? [],
             'variables' => $variables_arr
         ]);
