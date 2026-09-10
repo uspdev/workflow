@@ -2,9 +2,12 @@
 
 namespace Uspdev\Workflow;
 
+use Illuminate\Support\Facades\Event;
 use Uspdev\Workflow\Console\Commands\WorkflowDemo;
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
+use Uspdev\Workflow\Events\TransitionAppliedEvent;
+use Uspdev\Workflow\Listeners\TransitionAppliedListener;
 use Uspdev\Workflow\Providers\EventServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
@@ -39,6 +42,11 @@ class WorkflowServiceProvider extends ServiceProvider
             WorkflowSync::class,
             WorkflowDemo::class,
         ]);
+
+        Event::listen(
+            TransitionAppliedEvent::class,
+            TransitionAppliedListener::class,
+        );
 
         $this->registerInternalResolvers();
     }

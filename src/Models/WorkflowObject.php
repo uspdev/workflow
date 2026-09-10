@@ -16,6 +16,7 @@ use Uspdev\Forms\Facades\Forms;
 use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Forms\Models\FormSubmission;
 use Uspdev\Workflow\DTO\PlaceDefinition;
+use Uspdev\Workflow\Events\TransitionAppliedEvent;
 use Uspdev\Workflow\Exceptions\TransitionNotAllowedException;
 use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\DTO\TransitionDefinition;
@@ -355,6 +356,15 @@ class WorkflowObject extends Model
         // A melhor prática no Laravel é disparar um Evento para que o envio do e-mail
         // aconteça em background (fila/Queue), sem travar a tela do usuário.
         // event(new WorkflowTransitionExecuted($this, $transition, $destinatarios));
+
+        event(new TransitionAppliedEvent(
+            $this,
+            $transition->label,
+            $transition->from,
+            $transition->tos,
+            $transition->resolveNotificationDestinations($workflowDefinition->getDefinitionData())
+        ));
+
         return true;
     }
 
