@@ -224,4 +224,15 @@ class Workflow
         return WorkflowDefinition::createObject($definitionName, $model);
     }
 
+    /**
+     * Recupera os objetos de workflow cujo place atual contém uma role possuída pelo usuário
+     * referenciado.
+     * @param User $user
+     * @return Collection<int, WorkflowObject>
+     */
+    public static function getUserRelatedObjects(User $user): Collection
+    {
+        return WorkflowObject::getUserRelated($user);
+    }
+
 }
