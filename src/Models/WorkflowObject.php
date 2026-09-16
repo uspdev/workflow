@@ -258,6 +258,43 @@ class WorkflowObject extends Model
     }
 
     /**
+     * Retorna objetos de workflow relacionados ao usuário (objetos cujo place atual contém uma
+     * role atrelada ao usuário).
+     * @param User $user
+     * @return Collection<int, WorkflowObject>
+     */
+    public static function getUserRelated(User $user): Collection
+    {
+        $objects = SELF::all();
+        $objects->filter(function($object) use($user)
+        {
+            $hasRole = false;
+
+            /** @var WorkflowDefinition */
+            $workflowDef = $object->definition;
+            $places = $workflowDef->places();
+            
+            foreach($places as $place)
+            {
+                
+                if(in_array($place->name, $object->current_places)) 
+                {
+                    if($user->hasAnyRole($place->roles))
+                    {
+                        $hasRole = true;
+                        break;   
+                    }
+                }
+            }
+
+            return $hasRole;
+            
+        });
+
+        return $objects;
+    }
+
+    /**
      * Aplica uma transição à este objeto de workflow. A transição é identificada pelo nome e os dados 
      * necessários são referenciados em inputData.
      * 
@@ -346,16 +383,6 @@ class WorkflowObject extends Model
         });
 
         $this->refresh();
-
-        // TODO -  notifica quem precisar
-        // notifications está bugado
-        // Passamos o grafo ($definitionData) para que o DTO consiga calcular as roles padrão dos 'tos'
-        // $destinatarios = $transition->resolveNotificationDestinations($definitionData);
-
-        // Agora que temos o array $destinatarios calculado, disparamos a ação de envio.
-        // A melhor prática no Laravel é disparar um Evento para que o envio do e-mail
-        // aconteça em background (fila/Queue), sem travar a tela do usuário.
-        // event(new WorkflowTransitionExecuted($this, $transition, $destinatarios));
 
         event(new TransitionAppliedEvent(
             $this,
