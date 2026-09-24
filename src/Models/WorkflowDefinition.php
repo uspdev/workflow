@@ -62,13 +62,6 @@ class WorkflowDefinition extends Model
                     'guard_name' => config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id,
                 ]
             );
-
-            if($roleData['source'][0] == '*')
-            {
-                $permissionName = substr($roleData['source'], 1);
-                $permission = Permission::findByName($permissionName, 'senhaunica');
-                $role->givePermissionTo($permission);
-            }
         }
     }
 
@@ -82,6 +75,31 @@ class WorkflowDefinition extends Model
         foreach($roles as $roleData)
         {
             Role::where(['name' => $roleData['name']])->delete();
+        }
+    }
+
+    public function bindRoleWithPerms(?User $user): void
+    {
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id;
+        $roles = $this->definition['roles'];
+
+        foreach($roles as $roleData)
+        {
+            $role = Role::findByName($roleData['name'], $guard_name);
+            if(!isset($role))
+            { 
+                $this->deployRoles();  
+                $role = Role::findByName($roleData['name'], $guard_name);
+            }
+            
+            if($roleData['source'][0] == '*')   
+            {
+                $permissionName = substr($roleData['source'], 1);
+                if($user->hasPermissionTo($permissionName))
+                {
+                    $user->assignRole($role);
+                }
+            }
         }
     }
 
