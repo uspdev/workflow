@@ -40,7 +40,6 @@ class WorkflowServiceProvider extends ServiceProvider
         // Publica o comando de WorkflowSync
         $this->commands([
             WorkflowSync::class,
-            WorkflowDemo::class,
         ]);
 
         Event::listen(

@@ -56,12 +56,19 @@ class WorkflowDefinition extends Model
 
         foreach($roles as $roleData)
         {
-            Role::firstOrCreate(
+            $role = Role::firstOrCreate(
                 [
                     'name' => $roleData['name'],
                     'guard_name' => config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id,
                 ]
             );
+
+            if($roleData['source'][0] == '*')
+            {
+                $permissionName = substr($roleData['source'], 1);
+                $permission = Permission::findByName($permissionName, 'senhaunica');
+                $role->givePermissionTo($permission);
+            }
         }
     }
 
