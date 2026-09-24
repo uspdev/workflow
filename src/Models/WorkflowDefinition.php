@@ -56,7 +56,12 @@ class WorkflowDefinition extends Model
 
         foreach($roles as $roleData)
         {
-            Role::firstOrCreate(['name' => $roleData['name']]);
+            Role::firstOrCreate(
+                [
+                    'name' => $roleData['name'],
+                    'guard_name' => config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id,
+                ]
+            );
         }
     }
 
@@ -101,7 +106,6 @@ class WorkflowDefinition extends Model
         $newDef->definition = json_decode($request->input('definition'), true);
         $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
-        $newDef->deployRoles();
         $newDef->save();
 
         return $newDef;
