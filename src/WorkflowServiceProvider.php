@@ -6,8 +6,10 @@ use Illuminate\Support\Facades\Event;
 use Uspdev\Workflow\Console\Commands\WorkflowDemo;
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
+use Uspdev\SenhaunicaSocialite\Events\SenhaunicaUsuarioLogado;
 use Uspdev\Workflow\Events\TransitionAppliedEvent;
 use Uspdev\Workflow\Listeners\TransitionAppliedListener;
+use Uspdev\Workflow\Listeners\UserLogInListener;
 use Uspdev\Workflow\Providers\EventServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
@@ -42,10 +44,16 @@ class WorkflowServiceProvider extends ServiceProvider
             WorkflowSync::class,
         ]);
 
-        Event::listen(
-            TransitionAppliedEvent::class,
-            TransitionAppliedListener::class,
-        );
+        // Array de eventos na forma evento => listener. Basta adicionar o noveo evento e listener dessa forma que já será registrado
+        $events = [
+            TransitionAppliedEvent::class => TransitionAppliedListener::class,
+            SenhaunicaUsuarioLogado::class => UserLogInListener::class,
+        ];
+
+        foreach($events as $event => $listener)
+        {
+            Event::listen($event, $listener)   ;
+        }
 
         $this->registerInternalResolvers();
     }
