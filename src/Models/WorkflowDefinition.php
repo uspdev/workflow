@@ -2,6 +2,7 @@
 
 namespace Uspdev\Workflow\Models;
 
+use App\Models\User;
 use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
@@ -78,29 +79,31 @@ class WorkflowDefinition extends Model
         }
     }
 
-    public function bindRoleWithPerms(?User $user): void
+    /**
+     * Verifica se o usuário possui uma role especificada na definição de workflow,
+     *  ou, alternativamente, se possui a permission atrelada à role, também definida na
+     *  definição do workflow.
+     * @param string $roleName
+     * @param User $user
+     * @return bool
+     */
+    public function verifyRole(string $roleName, User $user): bool
     {
-        $guard_name = config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id;
-        $roles = $this->definition['roles'];
+        if($user->hasRole($roleName)){ return true; }
 
-        foreach($roles as $roleData)
+        $role = $this->getDefinitionData()->roles->where('name', $roleName)->firstOrFail();
+        
+        
+        // Trata o caso em que a role está associada à uma permission
+        if(isset($role->source) && $role->source[0] == '*')
         {
-            $role = Role::findByName($roleData['name'], $guard_name);
-            if(!isset($role))
-            { 
-                $this->deployRoles();  
-                $role = Role::findByName($roleData['name'], $guard_name);
-            }
+            // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
+            $sourceData = explode(".", substr($role->source, 1));
             
-            if($roleData['source'][0] == '*')   
-            {
-                $permissionName = substr($roleData['source'], 1);
-                if($user->hasPermissionTo($permissionName))
-                {
-                    $user->assignRole($role);
-                }
-            }
+            return $user->hasPermissionTo($sourceData[1], $sourceData[0]);
         }
+
+        return false;
     }
 
     /**
@@ -329,7 +332,7 @@ class WorkflowDefinition extends Model
      * @param ?int $version
      * @return WorkflowDefinition|null
      */
-    public static function _load(string $definitionName, ?int $version = null): ?WorkflowDefinition
+    private static function _load(string $definitionName, ?int $version = null): ?WorkflowDefinition
     {
         if(isset($version)) 
         {
@@ -376,6 +379,18 @@ class WorkflowDefinition extends Model
         ]);
 
         return $workflowObject;
+    }
+
+    public static function findUsersWithRole(string $roleName, string $defName, int $defVersion)
+    {
+           $workflowDef = SELF::_load($defName, $defVersion);
+           $users = User::all();
+           
+           $users = $users->filter(function($user) use ($workflowDef, $roleName){
+                return $workflowDef->verifyRole($roleName, $user);
+           });
+
+           return $users;
     }
 
     // **************************************
@@ -456,7 +471,7 @@ class WorkflowDefinition extends Model
         $graphviz = new GraphViz();
 
         $tmpFilePath = $graphviz->createImageFile($graph);
-        $destinationPath = storage_path('app/public/' . $this->name . '.png');
+        $destinationPath = storage_path('app/public/' . $this->name . '_' . $this->version . '.png');
         rename($tmpFilePath, $destinationPath);
     }
 
@@ -543,11 +558,11 @@ class WorkflowDefinition extends Model
     public static function obterDadosDaDefinicao(string $definitionName, int $version): array
     {
         /** @var WorkflowDefinition */
-        $workflowDefinition = SELF::where(['name' => $definitionName, 'version' => $version])->firstOrFail();
+        $workflowDefinition = SELF::_load($definitionName, $version);
 
         $definitionData = $workflowDefinition->definition;
         $workflowDefinition->generatePng();
-        $path = "storage/app/public/" . $definitionName . ".png";
+        $path = "storage/app/public/" . $definitionName . "_" . $version .".png";
         $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
 
