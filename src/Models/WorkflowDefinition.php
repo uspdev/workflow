@@ -550,23 +550,12 @@ class WorkflowDefinition extends Model
         $path = "storage/app/public/" . $definitionName . ".png";
         $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
-        $roles = [];
-        foreach($workflowDefinition->definition['places'] as $place){
-
-            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
-            $keyRole = key($place['roles']);
-            // keyRole == Role_keyN
-            $role = $place['roles'][$keyRole];
-            // role == roleN
-            $roles[$role] = $keyRole;
-            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
-        }
 
         $workflowData['workflowDefinition'] = $workflowDefinition;
         $workflowData['definitionName'] = $definitionName;
         $workflowData['path'] = $path;
         $workflowData['formattedJson'] = $formattedJson;
-        $workflowData['roles'] = array_unique($roles);
+        $workflowData['roles'] = $workflowDefinition->definition['roles'] ?? [];;
         $workflowData['version'] = $workflowDefinition->version;
 
         return $workflowData;
