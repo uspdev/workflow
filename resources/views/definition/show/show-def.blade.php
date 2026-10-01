@@ -16,13 +16,13 @@
               <input type="hidden" name="workflowDefinitionName" value="{{ $workflowDefinitionData['definitionName'] }}">
               <div class="card-header py-1">
                 <span class="h5">
-                  {{ $role['label'] }}
+                  {{ $role['label'] }} - 
                   {{ $role['source'] ?? '' }}
                   @include('uspdev-workflow::definition.partials.codpes-adicionar-btn')
                 </span><br>
               </div>
               <div class="card-body py-1">
-                @foreach (Spatie\Permission\Models\Role::findByName($role['name'])->users as $user)
+                @foreach (Uspdev\Workflow\Models\WorkflowDefinition::findUsersWithRole($role['name'], $workflowDefinitionData['definitionName'], $workflowDefinitionData['version']) as $user)
                   <div class="hover">
                     <span>{{ $user->name }}</span>
                     <span class="hide">
