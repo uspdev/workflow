@@ -47,7 +47,6 @@ class WorkflowServiceProvider extends ServiceProvider
         // Array de eventos na forma evento => listener. Basta adicionar o noveo evento e listener dessa forma que já será registrado
         $events = [
             TransitionAppliedEvent::class => TransitionAppliedListener::class,
-            SenhaunicaUsuarioLogado::class => UserLogInListener::class,
         ];
 
         foreach($events as $event => $listener)
