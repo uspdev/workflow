@@ -3,13 +3,10 @@
 namespace Uspdev\Workflow;
 
 use Illuminate\Support\Facades\Event;
-use Uspdev\Workflow\Console\Commands\WorkflowDemo;
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
-use Uspdev\SenhaunicaSocialite\Events\SenhaunicaUsuarioLogado;
 use Uspdev\Workflow\Events\TransitionAppliedEvent;
 use Uspdev\Workflow\Listeners\TransitionAppliedListener;
-use Uspdev\Workflow\Listeners\UserLogInListener;
 use Uspdev\Workflow\Providers\EventServiceProvider;
 
 class WorkflowServiceProvider extends ServiceProvider
