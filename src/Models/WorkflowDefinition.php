@@ -332,7 +332,7 @@ class WorkflowDefinition extends Model
      * @param ?int $version
      * @return WorkflowDefinition|null
      */
-    private static function _load(string $definitionName, ?int $version = null): ?WorkflowDefinition
+    public static function _load(string $definitionName, ?int $version = null): ?WorkflowDefinition
     {
         if(isset($version)) 
         {
