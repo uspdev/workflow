@@ -2,6 +2,7 @@
 
 namespace Uspdev\Workflow\Models;
 
+use App\Models\User;
 use DB;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
@@ -56,7 +57,12 @@ class WorkflowDefinition extends Model
 
         foreach($roles as $roleData)
         {
-            Role::firstOrCreate(['name' => $roleData['name']]);
+            $role = Role::firstOrCreate(
+                [
+                    'name' => $roleData['name'],
+                    'guard_name' => config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id,
+                ]
+            );
         }
     }
 
@@ -71,6 +77,33 @@ class WorkflowDefinition extends Model
         {
             Role::where(['name' => $roleData['name']])->delete();
         }
+    }
+
+    /**
+     * Verifica se o usuário possui uma role especificada na definição de workflow,
+     *  ou, alternativamente, se possui a permission atrelada à role, também definida na
+     *  definição do workflow.
+     * @param string $roleName
+     * @param User $user
+     * @return bool
+     */
+    public function verifyRole(string $roleName, User $user): bool
+    {
+        if($user->hasRole($roleName)){ return true; }
+
+        $role = $this->getDefinitionData()->roles->where('name', $roleName)->firstOrFail();
+        
+        
+        // Trata o caso em que a role está associada à uma permission
+        if(isset($role->source) && $role->source[0] == '*')
+        {
+            // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
+            $sourceData = explode(".", substr($role->source, 1));
+            
+            return $user->hasPermissionTo($sourceData[1], $sourceData[0]);
+        }
+
+        return false;
     }
 
     /**
@@ -101,7 +134,6 @@ class WorkflowDefinition extends Model
         $newDef->definition = json_decode($request->input('definition'), true);
         $newDef->version = ($oldDefinition->version ?? 0) + 1;
         $newDef->changeStatusTo(WorkflowStatus::DRAFT);
-        $newDef->deployRoles();
         $newDef->save();
 
         return $newDef;
@@ -349,6 +381,18 @@ class WorkflowDefinition extends Model
         return $workflowObject;
     }
 
+    public static function findUsersWithRole(string $roleName, string $defName, int $defVersion)
+    {
+           $workflowDef = SELF::_load($defName, $defVersion);
+           $users = User::all();
+           
+           $users = $users->filter(function($user) use ($workflowDef, $roleName){
+                return $workflowDef->verifyRole($roleName, $user);
+           });
+
+           return $users;
+    }
+
     // **************************************
 
     /**
@@ -401,8 +445,9 @@ class WorkflowDefinition extends Model
             if ($metadata) {
                 $label .= "\nMetadata:\n" . $metadata . "\n";
             }
-
+            
             $vertex = $graph->createVertex(array('name' => $placeName));
+            $vertex->setAttribute('graphviz.label', $placeName);
             $vertex->setAttribute('graphviz.shape', 'circle');
 
             if (in_array($placeName, $initialPlaces)) {
@@ -412,22 +457,22 @@ class WorkflowDefinition extends Model
 
             $vertices[$placeName] = $vertex;
         }
+        
+        foreach ($definition['transitions'] as $key => $transition) {
 
-        foreach ($definition['transitions'] as $transitionName => $transition) {
-
-            $fromPlace = $vertices[$transition['from']];
+            $fromPlaceV = $vertices[$transition['from']];
             $toPlaces = is_array($transition['tos']) ? $transition['tos'] : [$transition['tos']];
 
             foreach ($toPlaces as $toPlace) {
-                $edge = $graph->createEdgeDirected($fromPlace, $vertices[$toPlace]);
-                $edge->setAttribute('graphviz.label', $transitionName);
+                $edge = $graph->createEdgeDirected($fromPlaceV, $vertices[$toPlace]);
+                $edge->setAttribute('graphviz.label', $transition['name']);
             }
         }
 
         $graphviz = new GraphViz();
 
         $tmpFilePath = $graphviz->createImageFile($graph);
-        $destinationPath = storage_path('app/public/' . $this->name . '.png');
+        $destinationPath = storage_path('app/public/' . $this->name . '_' . $this->version . '.png');
         rename($tmpFilePath, $destinationPath);
     }
 
@@ -514,30 +559,19 @@ class WorkflowDefinition extends Model
     public static function obterDadosDaDefinicao(string $definitionName, int $version): array
     {
         /** @var WorkflowDefinition */
-        $workflowDefinition = SELF::where(['name' => $definitionName, 'version' => $version])->firstOrFail();
+        $workflowDefinition = SELF::_load($definitionName, $version);
 
         $definitionData = $workflowDefinition->definition;
         $workflowDefinition->generatePng();
-        $path = "storage/app/public/" . $definitionName . ".png";
+        $path = "storage/app/public/" . $definitionName . "_" . $version .".png";
         $formattedJson = json_encode($definitionData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
-        $roles = [];
-        foreach($workflowDefinition->definition['places'] as $place){
-
-            // Inicialmente no formato 'places => [Role_key1 => role1, ...]
-            $keyRole = key($place['roles']);
-            // keyRole == Role_keyN
-            $role = $place['roles'][$keyRole];
-            // role == roleN
-            $roles[$role] = $keyRole;
-            // Por fim, passa ao formato : $roles[roleN] == Role_keyN
-        }
 
         $workflowData['workflowDefinition'] = $workflowDefinition;
         $workflowData['definitionName'] = $definitionName;
         $workflowData['path'] = $path;
         $workflowData['formattedJson'] = $formattedJson;
-        $workflowData['roles'] = array_unique($roles);
+        $workflowData['roles'] = $workflowDefinition->definition['roles'] ?? [];;
         $workflowData['version'] = $workflowDefinition->version;
 
         return $workflowData;

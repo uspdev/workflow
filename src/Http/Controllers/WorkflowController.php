@@ -116,7 +116,7 @@ class WorkflowController extends Controller
     {
         $new_ver = WorkflowDefinition::storeDefinition($request);
 
-        return redirect()->route('workflows.showDefinition', ['definitionName' => $request->name, 'version' => $new_ver]);
+        return redirect()->route('workflows.showDefinition', ['definitionName' => $new_ver->name, 'version' => $new_ver->version]);
     }
 
     /**

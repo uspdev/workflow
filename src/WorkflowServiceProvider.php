@@ -3,7 +3,6 @@
 namespace Uspdev\Workflow;
 
 use Illuminate\Support\Facades\Event;
-use Uspdev\Workflow\Console\Commands\WorkflowDemo;
 use Uspdev\Workflow\Console\Commands\WorkflowSync;
 use Illuminate\Support\ServiceProvider;
 use Uspdev\Workflow\Events\TransitionAppliedEvent;
@@ -40,13 +39,17 @@ class WorkflowServiceProvider extends ServiceProvider
         // Publica o comando de WorkflowSync
         $this->commands([
             WorkflowSync::class,
-            WorkflowDemo::class,
         ]);
 
-        Event::listen(
-            TransitionAppliedEvent::class,
-            TransitionAppliedListener::class,
-        );
+        // Array de eventos na forma evento => listener. Basta adicionar o noveo evento e listener dessa forma que já será registrado
+        $events = [
+            TransitionAppliedEvent::class => TransitionAppliedListener::class,
+        ];
+
+        foreach($events as $event => $listener)
+        {
+            Event::listen($event, $listener)   ;
+        }
 
         $this->registerInternalResolvers();
     }
