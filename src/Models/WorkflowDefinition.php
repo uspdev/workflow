@@ -445,8 +445,9 @@ class WorkflowDefinition extends Model
             if ($metadata) {
                 $label .= "\nMetadata:\n" . $metadata . "\n";
             }
-
+            
             $vertex = $graph->createVertex(array('name' => $placeName));
+            $vertex->setAttribute('graphviz.label', $placeName);
             $vertex->setAttribute('graphviz.shape', 'circle');
 
             if (in_array($placeName, $initialPlaces)) {
@@ -456,15 +457,15 @@ class WorkflowDefinition extends Model
 
             $vertices[$placeName] = $vertex;
         }
+        
+        foreach ($definition['transitions'] as $key => $transition) {
 
-        foreach ($definition['transitions'] as $transitionName => $transition) {
-
-            $fromPlace = $vertices[$transition['from']];
+            $fromPlaceV = $vertices[$transition['from']];
             $toPlaces = is_array($transition['tos']) ? $transition['tos'] : [$transition['tos']];
 
             foreach ($toPlaces as $toPlace) {
-                $edge = $graph->createEdgeDirected($fromPlace, $vertices[$toPlace]);
-                $edge->setAttribute('graphviz.label', $transitionName);
+                $edge = $graph->createEdgeDirected($fromPlaceV, $vertices[$toPlace]);
+                $edge->setAttribute('graphviz.label', $transition['name']);
             }
         }
 
