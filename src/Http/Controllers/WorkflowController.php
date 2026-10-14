@@ -233,7 +233,7 @@ class WorkflowController extends Controller
     private function prepararDadosDaTelaDoObjeto(array $workflowObjectData): array
     {
         $workflowObjectData['orientacaoUsuario'] = $this->construirOrientacaoUsuario($workflowObjectData);
-        $workflowObjectData = $this->construirHistoricoEstados($workflowObjectData);
+        $workflowObjectData['historicoEstados'] = $this->construirHistoricoEstados($workflowObjectData);
         $workflowObjectData['transicoesVisiveis'] = $this->construirTransicoesVisiveis($workflowObjectData);
         $workflowObjectData['transicoesAdmin'] = $this->construirTransicoesAdmin($workflowObjectData);
 
@@ -456,6 +456,8 @@ class WorkflowController extends Controller
      */
     private function construirHistoricoEstados(array $workflowObjectData): array
     {
+        $historicoEstados = [];
+
         /** @var WorkflowDefinition */
         $workflowDef = $workflowObjectData['workflowDefinition'];
 
@@ -479,18 +481,19 @@ class WorkflowController extends Controller
                 $toLbls[] = $workflowDef->place($to)->label;    
             }
 
-            $workflowObjectData['historicoEstados'][] = [
+            $historicoEstados[] = [
                 'action' => $actLbl,
                 'froms' => $fromLbls,
                 'tos' => $toLbls,
                 'user_codpes' => $userCodpes,
+                'form_sub_id' => $history['form_submission_id'],
                 'metadata' => $history['meatadata'],
                 'created_at' => $history['created_at']->format('d/m/Y H:i:s'),
                 'updated_at' => $history['updated_at']->format('d/m/Y H:i:s'),
             ];
         }
 
-        return $workflowObjectData;
+        return $historicoEstados;
     }
 
     public function deleteObject($workflowObjectId)

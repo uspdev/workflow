@@ -32,6 +32,10 @@
                         {{ $itemHistorico['user_codpes'] }}
                     </div>
                     <div class="small mb-1">
+                        <strong>Id da submissão:</strong>
+                        {{ $itemHistorico['submission_id'] ?? 'Não há submissão para esta ação' }}
+                    </div>
+                    <div class="small mb-1">
                         <strong>Detalhes:</strong> 
                         {{ $itemHistorico['metadata'] ?? 'Não informados' }}
                     </div>
