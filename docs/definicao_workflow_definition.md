@@ -178,12 +178,11 @@ Todos DTOs devem possuir `fromArray`, `toArray` e `validate`.
 
 ## Resolver
 
-* Resolver é um método
+* Resolver é um método, que recebe uma string e um valor, faz o match e manipula o valor da maneira desejada antes de retornar.
 
 ```php
-Workflow::resolver('user_by_codpes', function ($value) {
-    return User::where('codpes', $value)->first();
-});
+/** @var WorkflowObject */
+$workflowObject->resolveBindingValues(string $resolver, mixed $value): mixed
 ```
 
 ## Notifications
