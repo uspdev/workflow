@@ -71,6 +71,10 @@
 
 * Retorna o histórico de transitions registrado em WorkflowHistory
 
+#### $object->verifyRole(string $roleName, User $user): bool 📝
+
+* Verifica se o usuário possui a role apontada naquela definition
+
 ---
 
 ## Descrição complementar de $object->apply()
