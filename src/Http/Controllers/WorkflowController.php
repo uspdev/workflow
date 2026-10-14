@@ -6,12 +6,13 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Uspdev\Workflow\Models\WorkflowObject;
 use Uspdev\Workflow\Workflow;
 use Uspdev\Workflow\Models\WorkflowDefinition;
-
+use Uspdev\Workflow\Models\WorkflowHistory;
 
 class WorkflowController extends Controller
 {
@@ -232,10 +233,11 @@ class WorkflowController extends Controller
     private function prepararDadosDaTelaDoObjeto(array $workflowObjectData): array
     {
         $workflowObjectData['orientacaoUsuario'] = $this->construirOrientacaoUsuario($workflowObjectData);
-        $workflowObjectData['historicoEstados'] = $this->construirHistoricoEstados($workflowObjectData);
+        $workflowObjectData = $this->construirHistoricoEstados($workflowObjectData);
         $workflowObjectData['transicoesVisiveis'] = $this->construirTransicoesVisiveis($workflowObjectData);
         $workflowObjectData['transicoesAdmin'] = $this->construirTransicoesAdmin($workflowObjectData);
 
+        // dd($workflowObjectData['historicoEstados']);
         return $workflowObjectData;
     }
 
@@ -454,66 +456,41 @@ class WorkflowController extends Controller
      */
     private function construirHistoricoEstados(array $workflowObjectData): array
     {
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
+        /** @var WorkflowDefinition */
+        $workflowDef = $workflowObjectData['workflowDefinition'];
 
-        // Percorrer as submissões de formulários, ordenando por data de criação, e construir uma descrição legível
+        /** @var WorkflowHistory */
+        $wfHistory = $workflowObjectData['workflowObject']->history;
         
-        // do histórico de estados e transições para o usuário
-        return collect($workflowObjectData['formSubmissions'] ?? [])
-            ->sortByDesc('created_at')
-            ->map(function ($submissao) use ($transicoes, $lugares) {
-                $dados = $submissao->data ?? [];
-                $valorEstado = $submissao->place ?? ($dados['place'] ?? null);
-                $nomeTransicao = $dados['transition'] ?? null;
-                // Tratar o valor do estado para criar uma descrição legível
-                $descricoesEstado = collect(explode(',', (string) $valorEstado))
-                    ->map(function ($estado) {
-                        return trim($estado);
-                    })
-                    ->filter()
-                    ->map(function ($chaveEstado) use ($lugares) {
-                        return $lugares[$chaveEstado]['description'] ?? $chaveEstado;
-                    })
-                    ->values()
-                    ->all();
+        foreach($wfHistory as $history)
+        {
+            $actLbl = $workflowDef->transition($history['transition_name'])->label;
+            $userCodpes = User::where('id', $history['user_id'])->value('codpes');
 
-                $rotuloTransicao = $nomeTransicao
-                    ? ($transicoes[$nomeTransicao]['label'] ?? Str::replace('_', ' ', ucfirst($nomeTransicao)))
-                    : null;
+            $fromLbls = [];
+            foreach($history['from_places'] as $from)
+            {
+                $fromLbls[] = $workflowDef->place($from)->label;    
+            }
 
-                $motivo = $dados['retorno'] ?? null;
-                $ehRetorno = $rotuloTransicao
-                    ? Str::contains(Str::lower($rotuloTransicao), ['devolv', 'retorn'])
-                    : false;
+            $toLbls = [];
+            foreach($history['to_places'] as $to)
+            {
+                $toLbls[] = $workflowDef->place($to)->label;    
+            }
 
-                if ($ehRetorno && $motivo) {
-                    $detalhe = 'Formulário retornado ao usuário. Motivo: '.$motivo;
-                } elseif ($ehRetorno) {
-                    $detalhe = 'Formulário retornado ao usuário para correção.';
-                } elseif ($motivo) {
-                    $detalhe = $motivo;
-                } elseif (! empty($descricoesEstado)) {
-                    $detalhe = 'Estado atualizado para: '.implode(', ', $descricoesEstado).'.';
-                } else {
-                    $detalhe = 'Movimentação registrada no fluxo.';
-                }
+            $workflowObjectData['historicoEstados'][] = [
+                'action' => $actLbl,
+                'froms' => $fromLbls,
+                'tos' => $toLbls,
+                'user_codpes' => $userCodpes,
+                'metadata' => $history['meatadata'],
+                'created_at' => $history['created_at']->format('d/m/Y H:i:s'),
+                'updated_at' => $history['updated_at']->format('d/m/Y H:i:s'),
+            ];
+        }
 
-                $titulo = $rotuloTransicao
-                    ? $rotuloTransicao
-                    : (! empty($descricoesEstado) ? implode(', ', $descricoesEstado) : 'Atualização de solicitação');
-                
-                return [
-                    'titulo' => $titulo,
-                    'detalhe' => $detalhe,
-                    'created_at' => $submissao->created_at,
-                ];
-            })
-            ->filter(function ($entrada) {
-                return ! empty($entrada['titulo']);
-            })
-            ->values()
-            ->all();
+        return $workflowObjectData;
     }
 
     public function deleteObject($workflowObjectId)
