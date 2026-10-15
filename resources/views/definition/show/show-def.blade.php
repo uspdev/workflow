@@ -18,7 +18,7 @@
                 <span class="h5">
                   {{ $role['label'] }} - 
                   {{ $role['source'] ?? '' }}
-                  @include('uspdev-workflow::definition.partials.codpes-adicionar-btn')
+                  @include('uspdev-workflow::definition.partials.codpes-adicionar-btn', ['wf_id' => $workflowDefinitionData['workflowDefinition']->id])
                 </span><br>
               </div>
               <div class="card-body py-1">
@@ -27,7 +27,7 @@
                     <span>{{ $user->name }}</span>
                     <span class="hide">
                       @if ($user->codpes != auth()->user()->codpes)
-                        @include('uspdev-workflow::definition.partials.codpes-remover-btn', ['codpes' => $user->codpes])
+                        @include('uspdev-workflow::definition.partials.codpes-remover-btn', ['codpes' => $user->codpes, 'wf_id' => $workflowDefinitionData['workflowDefinition']->id])
                       @endif
                     </span>
                   </div>

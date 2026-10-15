@@ -463,9 +463,14 @@ class WorkflowObject extends Model
             return true;
         }
         
-        return $user !== null
-            && method_exists($user, 'hasRole')
-            && ($user->hasAnyRole(array_values($roles)) || Gate::allows('admin'));
+        $hasRole = false;
+        foreach($roles as $role)
+        {
+            $hasRole = $workflowDefinition->verifyRole($role, $user);
+            if($hasRole){ break; }
+        }
+
+        return $user !== null && ($hasRole || Gate::allows('admin'));
     }
 
     /**
@@ -480,7 +485,13 @@ class WorkflowObject extends Model
 
 
     /**
-     * Sistema de mapeamento de Resolvers (Pode ser expandido com Services do Laravel)
+     * Sistema de mapeamento de Resolvers 
+     * (Pode ser expandido com Services do Laravel)
+     *
+     * @param string $resolver
+     * @param mixed $value
+     * 
+     * @return mixed
      */
     protected function resolveBindingValue(string $resolver, mixed $value): mixed
     {

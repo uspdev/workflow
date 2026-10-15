@@ -80,27 +80,33 @@ class WorkflowDefinition extends Model
     }
 
     /**
-     * Verifica se o usuário possui uma role especificada na definição de workflow,
+     * Verifica se o usuário possui uma das roles especificadas na definição de workflow,
      *  ou, alternativamente, se possui a permission atrelada à role, também definida na
      *  definição do workflow.
-     * @param string $roleName
+     * @param string|array<int, string> $roleNames
      * @param User $user
      * @return bool
      */
-    public function verifyRole(string $roleName, User $user): bool
+    public function verifyRole(string|array $roleNames, User $user): bool
     {
-        if($user->hasRole($roleName)){ return true; }
+        if(!is_array($roleNames)){ $roleNames = [$roleNames]; }
+        $allRoles = $this->getDefinitionData()->roles;
 
-        $role = $this->getDefinitionData()->roles->where('name', $roleName)->firstOrFail();
-        
-        
-        // Trata o caso em que a role está associada à uma permission
-        if(isset($role->source) && $role->source[0] == '*')
+        foreach($roleNames as $roleName)
         {
-            // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
-            $sourceData = explode(".", substr($role->source, 1));
+            if($user->hasRole($roleName . '_wf_' . $this->id))
+            { return true; }
+
+            $role = $allRoles->where('name', $roleName)->firstOrFail();
             
-            return $user->hasPermissionTo($sourceData[1], $sourceData[0]);
+            // Trata o caso em que a role está associada à uma permission por 'source'
+            if(isset($role->source) && $role->source[0] == '*')
+            {
+                // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
+                $sourceData = explode(".", substr($role->source, 1));
+                
+                if($user->hasPermissionTo($sourceData[1], $sourceData[0])) { return true; };
+            }
         }
 
         return false;

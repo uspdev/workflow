@@ -9,13 +9,36 @@
         <div class="card-body">
             @forelse ($workflowObjectData['historicoEstados'] ?? [] as $itemHistorico)
                 <div class="border rounded px-3 py-2 mb-2 bg-light">
-                    <div class="fw-semibold mb-1">{{ $itemHistorico['titulo'] }}</div>
-                    <div class="small text-muted mb-1">
-                        {{ $itemHistorico['created_at']
-                            ? \Carbon\Carbon::parse($itemHistorico['created_at'])->format('d/m/Y H:i')
-                            : 'Data não informada' }}
+                    <div class="fw-semibold mb-1">
+                        <strong>Ação:</strong> {{ $itemHistorico['action'] }}
                     </div>
-                    <div class="small">{{ $itemHistorico['detalhe'] }}</div>
+                    <div class="small text-muted mb-1">
+                        {{ $itemHistorico['created_at'] ?? 'Data não informada' }}
+                    </div>
+                    <div class="small mb-1">
+                        <strong>De:</strong> 
+                            @foreach($itemHistorico['froms'] as $from)
+                                {{ $from }} 
+                                @if(!$loop->last), @endif
+                            @endforeach
+                        <strong>Para:</strong> 
+                            @foreach($itemHistorico['tos'] as $to)
+                                {{ $to }}
+                                @if(!$loop->last), @endif
+                            @endforeach
+                    </div>
+                    <div class="small mb-1">
+                        <strong>Feito por:</strong> 
+                        {{ $itemHistorico['user_codpes'] }}
+                    </div>
+                    <div class="small mb-1">
+                        <strong>Id da submissão:</strong>
+                        {{ $itemHistorico['submission_id'] ?? 'Não há submissão para esta ação' }}
+                    </div>
+                    <div class="small mb-1">
+                        <strong>Detalhes:</strong> 
+                        {{ $itemHistorico['metadata'] ?? 'Não informados' }}
+                    </div>
                 </div>
             @empty
                 <p class="text-muted mb-0">Nenhuma movimentação registrada para esta solicitação.</p>

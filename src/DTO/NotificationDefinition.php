@@ -9,6 +9,7 @@ class NotificationDefinition extends AbstractWfDto
      */
     public function __construct(
         public array $appendRoles = [],
+        public array $emails = [],
     ) {}
 
     /**
@@ -20,6 +21,7 @@ class NotificationDefinition extends AbstractWfDto
 
         return new static(
             appendRoles: $data['append_roles'] ?? [],
+            emails: $data['emails'] ?? [],
         );
     }
 
@@ -28,7 +30,7 @@ class NotificationDefinition extends AbstractWfDto
         $errors = [];
         self::stringList($data, 'append_roles', $errors, allowEmpty: true, required: false);
 
-        foreach (['override_roles', 'users', 'emails'] as $unsupportedField) {
+        foreach (['override_roles', 'users'] as $unsupportedField) {
             if (array_key_exists($unsupportedField, $data)) {
                 $errors[] = "'{$unsupportedField}' não é suportado em notifications no Workflow V2.";
             }
@@ -44,6 +46,7 @@ class NotificationDefinition extends AbstractWfDto
     {
         return [
             'append_roles' => $this->appendRoles,
+            'emails' => $this->emails,
         ];
     }
 }

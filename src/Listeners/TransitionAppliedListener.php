@@ -4,8 +4,9 @@ namespace Uspdev\Workflow\Listeners;
 
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Notification;
 use Uspdev\Workflow\Events\TransitionAppliedEvent;
+use Uspdev\Workflow\Models\WorkflowDefinition;
 use Uspdev\Workflow\Notifications\TransitionAppliedNotification;
 
 
@@ -24,20 +25,34 @@ class TransitionAppliedListener implements ShouldQueue
      */
     public function handle(TransitionAppliedEvent $event): void
     {
-        $workflowObj = $event->workflowObject;
         
-        $role_users = User::all()->filter(function ($user) use ($event) {
-            return $user->hasAnyRole($event->destRoles);
-            });
+        $workflowObj = $event->workflowObject;
 
-        foreach($role_users as $user)
-        {
-            $user->notify(new TransitionAppliedNotification(
+        $notification = new TransitionAppliedNotification(
                 transitionLabel: $event->transitionLabel,
                 workflowObjectId: $workflowObj->id,
                 fromPlace: $event->fromPlace,
                 toPlace: $event->toPlace
-            ));
+            );
+
+        /** @var WorkflowDefinition */
+        $workflowDef = $workflowObj->definition;
+        
+        $users = User::all()->filter(function ($user) use ($event, $workflowDef) {
+                return $workflowDef->verifyRole($event->dest['roles'], $user);
+            });
+
+        $emails = $event->dest['emails'];
+        
+        foreach($users as $user)
+        {
+            $user->notify($notification);
+        }
+
+        foreach($emails as $email)
+        { 
+            
+            Notification::route('mail', $email)->notify($notification); 
         }
     }
 }

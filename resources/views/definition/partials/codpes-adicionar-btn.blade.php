@@ -57,8 +57,13 @@
 
       senhaunicaUserModal.find('.submit-btn').on('click', function() {
         let codpes = senhaunicaUserModal.find(':input[name=codpes_add]').val()
-        let codpes_input_add = $('<input type="hidden" name="codpes_add" value="' + codpes + '">')
+        // let codpes_input_add = $('<input type="hidden" name="codpes_add" value="' + codpes + '">')
+        let codpes_input_add = $('<input>', {type: 'hidden', name: 'codpes_add', value: codpes})
+        let wf_id = $('<input>', {type: 'hidden', name: 'wf_id', value: @json($wf_id)})
+
         $('#' + formId).append(codpes_input_add)
+        $('#' + formId).append(wf_id)
+
         // o submit nao funcionou em disciplinas.edit então fizémos um click no botão de submit
         $('#' + formId).trigger('submit')
         $('#' + formId).find('.default-submit-btn').trigger('click')

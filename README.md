@@ -11,7 +11,8 @@ A biblioteca Workflow facilita o gerenciamento de fluxos de trabalho em aplicaç
 
 ## Installation
 ### Requisitos prévios
-`apt install graphviz`
+
+- Pacote graphviz para geração da imagem do workflow ->> `apt install graphviz`
 
 ### 1. **Instale a biblioteca pelo Composer**
 

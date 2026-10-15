@@ -19,6 +19,7 @@ use Uspdev\Workflow\Models\WorkflowDefinition;
 use Symfony\Component\Workflow\Workflow as SymfonyWorkflow;
 use Symfony\Component\Workflow\MarkingStore\MethodMarkingStore;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Role;
 
 class Workflow
 {
@@ -158,17 +159,21 @@ class Workflow
     {
         $codpes_rem = $request->input('codpes_rem');
         $codpes_add = $request->input('codpes_add');
-        $role = $request->input('role');
-
+        $roleName = $request->input('role');
+        $wf_id = $request->input('wf_id');
+        
+        $roleNameF = $roleName . '_wf_' . $wf_id;
+        
+        
         $user      = Auth::user();
-        if (! $user->hasRole($role) && ! Gate::allows('admin')) {
+        if (! $user->hasRole($roleNameF) && ! Gate::allows('admin')) {
             return response()->json(['alert-danger' => 'Você não tem permissão para gerenciar este departamento.'], 403);
         }
 
         if ($codpes_rem) {
             $userToRemove = User::where('codpes', $codpes_rem)->first();
             if ($userToRemove) {
-                $userToRemove->removeRole($role);
+                $userToRemove->removeRole($roleNameF);
                 $request->session()->flash('alert-warning', 'Usuário removido com sucesso!');
             }
         }
@@ -176,6 +181,8 @@ class Workflow
         if ($codpes_add) {
             $userToAdd = User::findOrCreateFromReplicado($codpes_add);
             if ($userToAdd) {
+                $role = Role::findOrCreate($roleNameF);
+                // dd($role);
                 $userToAdd->assignRole($role);
                 $request->session()->flash('alert-success', 'Usuário adicionado com sucesso!');
             }
