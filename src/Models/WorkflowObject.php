@@ -462,13 +462,14 @@ class WorkflowObject extends Model
         if ($roles === []) {
             return true;
         }
-
+        
         $hasRole = false;
         foreach($roles as $role)
         {
-            $hasRole = $this->definition->verifyRole($role, $user);
-            if($hasRole){break;}
+            $hasRole = $workflowDefinition->verifyRole($role, $user);
+            if($hasRole){ break; }
         }
+
         return $user !== null && ($hasRole || Gate::allows('admin'));
     }
 
