@@ -136,7 +136,9 @@ class TransitionDefinition extends AbstractWfDto
      * As repetições são preservadas de propósito: o Workflow V2 não possui uma
      * etapa de deduplicação de destinatários.
      *
-     * @return array{roles: array<int, string>}
+     * @param WorkflowDefinitionData $graph
+     * 
+     * @return array{roles: array<int, string>, emails: array<int, string>}
      */
     public function resolveNotificationDestinations(WorkflowDefinitionData $graph): array
     {
@@ -148,11 +150,19 @@ class TransitionDefinition extends AbstractWfDto
             }
         }
 
+        $roles = [];
+        $emails = [];
+        $users = [];
+
+        if(isset($this->notifications)){
+            $roles = array_merge($defaultRoles, $this->notifications->appendRoles);
+            $emails = $this->notifications->emails;
+        }
+
+
         return [
-            'roles' => array_merge(
-                $defaultRoles,
-                $this->notifications?->appendRoles ?? [],
-            ),
+            'roles' => $roles,
+            'emails' => $emails,
         ];
     }
 
