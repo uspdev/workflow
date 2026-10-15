@@ -172,7 +172,12 @@ class Workflow
         if ($codpes_rem) {
             $userToRemove = User::where('codpes', $codpes_rem)->first();
             if ($userToRemove) {
-                $userToRemove->removePermission($roleName, $guard_name);
+                $perm = Permission::where([
+                        'name' => $roleName,
+                        'guard_name' => $guard_name
+                    ])->first();
+
+                $userToRemove->revokePermissionTo($perm);
                 $request->session()->flash('alert-warning', 'Usuário removido com sucesso!');
             }
         }
