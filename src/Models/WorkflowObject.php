@@ -252,7 +252,7 @@ class WorkflowObject extends Model
      *  formSubmissions: Collection<int, FormSubmission>
      * }
      */
-    public function getObjectData(int $object_id): array
+    public function getObjectData(): array
     {
         /** @var WorkflowDefinition */
         $workflowDefinition = $this->definition;

@@ -248,13 +248,13 @@ class Workflow
     }
 
     /**
-     * Recupera os dados de um objeto de workflow
+     * Recupera os dados de um objeto de workflow, para exibição na interface
      * @param WorkflowObject $workflowObject
-     * @return array{activities: \Illuminate\Support\Collection<int, array>, formSubmissions: \Illuminate\Support\Collection<int, FormSubmission>, forms: DTO\TransitionDefinition[], name: string, workflowDefinition: WorkflowDefinition, workflowObject: WorkflowObject, workflowsTransitions: array{all: \Illuminate\Support\Collection, allowed: array, currentState: array, enabled: \Illuminate\Support\Collection}}
+     * @return array{activities: \Illuminate\Support\Collection<int, array>, formSubmissions: \Illuminate\Support\Collection<int, FormSubmission>, forms: DTO\TransitionDefinition[], name: string, workflowDefinition: WorkflowDefinition, workflowObject: WorkflowObject, workflowsTransitions: array{all: \Illuminate\Support\Collection, allowed: \Illuminate\Support\Collection, currentState: array, enabled: \Illuminate\Support\Collection}}
      */
     public static function getObjectData(WorkflowObject $workflowObject)
     {
-        return WorkflowObject::getObjectData($workflowObject->id);
+        return $workflowObject->getObjectData();
     }
 
 }
