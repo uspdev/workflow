@@ -191,6 +191,31 @@ class WorkflowObject extends Model
     }
 
     /**
+     * Recupera as transitions as quais o usuário tem possibilidade de enxergar, baseado nos papéis
+     * do place atual que o objeto se encontra, referenciado em '$workflowObjectData', e nas transitions 
+     * habilitadas para o objeto. Admins podem visualizar todas as transitions habilitadas.
+     * 
+     * @param WorkflowDefinition $workflowDef
+     * @param Collection<int, TransitionDefinition> $enabledTransitions
+     * @param User $user
+     * 
+     * @return Collection<int, TransitionDefinition>
+     */
+    private function getAllowedTransitions(WorkflowDefinition $workflowDef, Collection $enabledTransitions, User $user): Collection
+    {
+        return $enabledTransitions->filter(function ($enTrans) use ($workflowDef, $user){
+            $places = $workflowDef->definition['places'];
+            foreach($places as $place)
+            {
+                if($enTrans->from === $place['name'])
+                {
+                    return $workflowDef->verifyRole($place['roles'], $user);
+                }
+            }
+        });
+    }
+
+    /**
      *  Retorna dados relevantes referentes um objeto de workflow
      *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
@@ -212,7 +237,7 @@ class WorkflowObject extends Model
      *                              enabled: Collection<int, TransitionDefinition>, 
      *                              all:Collection<int, TransitionDefinition>, 
      *                              currentState: array,                         
-     *                              allowed: array
+     *                              allowed: Collection<int, TransitionDefinition>
      *                              }, 
      *  forms: array<string,TransitionDefinition>, 
      *  name: string, 
@@ -227,33 +252,38 @@ class WorkflowObject extends Model
      *  formSubmissions: Collection<int, FormSubmission>
      * }
      */
-    public static function getObjectData(int $object_id): array
+    public function getObjectData(int $object_id): array
     {
-        /** @var WorkflowObject */
-        $workflowObject = WorkflowObject::findOrFail($object_id);
         /** @var WorkflowDefinition */
-        $workflowDefinition = $workflowObject->definition;
+        $workflowDefinition = $this->definition;
 
-        $workflowsTransitions['enabled'] = $workflowObject->enabledTransitions();
-        $workflowsTransitions['all'] =  $workflowDefinition->transitions();
-        $workflowsTransitions['currentState'] =  $workflowObject->current_places;
-        $workflowsTransitions['allowed'] = [];
+        $enabledTransitions = $this->enabledTransitions();
+        $allowedTransitions = $this->getAllowedTransitions($workflowDefinition, $enabledTransitions, auth()->user());
+
+        $workflowTransitions = [
+            'enabled'       => $enabledTransitions,
+            'all'           => $workflowDefinition->transitions(),
+            'currentSatte'  => $this->current_places,
+            'allowed'       => $allowedTransitions,
+        ];
         
-        $forms = $workflowObject->buildEnabledForms();
+        $forms = $this->buildEnabledForms();
 
         $title = $workflowDefinition->definition['label'] ?? $workflowDefinition->name;
-        $activities = SELF::obterAtividades($workflowObject->id);
+        $activities = SELF::obterAtividades($this->id);
         
-        $formSubmissions = $workflowObject->viewableSubmissions($workflowsTransitions['all']);
+        $formSubmissions = $this->viewableSubmissions($workflowTransitions['all']);
         
-        $workflowObjectData['workflowObject'] = $workflowObject;
-        $workflowObjectData['workflowDefinition'] = $workflowDefinition;
-        $workflowObjectData['workflowsTransitions'] = $workflowsTransitions;
-        $workflowObjectData['forms'] = $forms;
-        $workflowObjectData['name'] = $title;
-        $workflowObjectData['activities'] = $activities;
-        $workflowObjectData['formSubmissions'] = collect($formSubmissions) ?? collect([]);
-        
+        $workflowObjectData = [
+            'workflowObject'        => $this,
+            'workflowDefinition'    => $workflowDefinition,
+            'workflowTransitions'   => $workflowTransitions,
+            'forms'                 => $forms,
+            'name'                  => $title,
+            'activities'            => $activities,
+            'formSubmissions'       => collect($formSubmissions) ?? collect([])
+        ];
+
         return $workflowObjectData;
     }
 

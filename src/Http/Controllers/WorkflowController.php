@@ -237,7 +237,6 @@ class WorkflowController extends Controller
         $workflowObjectData['transicoesVisiveis'] = $this->construirTransicoesVisiveis($workflowObjectData);
         $workflowObjectData['transicoesAdmin'] = $this->construirTransicoesAdmin($workflowObjectData);
 
-        // dd($workflowObjectData['historicoEstados']);
         return $workflowObjectData;
     }
 
@@ -398,52 +397,6 @@ class WorkflowController extends Controller
             'estadosAtuais' => $descricoesEstadoAtual,
             'acoesDisponiveis' => [],
         ];
-    }
-
-    /**
-     * Recupera as transitions as quais o usuário tem possibilidade de enxergar, baseado nos papéis
-     * do place atual que o objeto se encontra, referenciado em '$workflowObjectData', e nas transitions 
-     * habilitadas para o objeto. Admins podem visualizar todas as transitions habilitadas.
-     * @param array $workflowObjectData
-     * @return array
-     */
-    private function obterTransicoesVisiveisParaUsuario(array $workflowObjectData): array
-    {
-        $transicoesVisiveis = [];
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        $chavesEstadoAtual = array_keys($workflowObjectData['workflowObject']->state ?? []);
-        $transicoesHabilitadas = $workflowObjectData['workflowsTransitions']['enabled'] ?? [];
-        $usuario = auth()->user();
-
-        foreach ($chavesEstadoAtual as $chaveEstado) {
-            // Verificar cada transição para ver se ela é aplicável ao estado atual e se o usuário tem permissão para executá-la
-            foreach ($transicoes as $nomeTransicao => $dadosTransicao) {
-                if (($dadosTransicao['from'] ?? null) !== $chaveEstado) {
-                    continue;
-                }
-
-                if (! in_array($nomeTransicao, $transicoesHabilitadas, true)) {
-                    continue;
-                }
-                // Verificar se o usuário tem pelo menos um dos papéis necessários para executar a transição
-                $papeisNecessarios = array_values($lugares[$chaveEstado]['role'] ?? []);
-                $temPapel = false;
-                foreach ($papeisNecessarios as $papel) {
-                    if (($usuario && $usuario->hasRole($papel)) || Gate::allows('admin')) {
-                        $temPapel = true;
-                        break;
-                    }
-                }
-                // Se o usuário tiver permissão, adicionar a transição à lista de transições visíveis
-                if ($temPapel) {
-                    $transicoesVisiveis[$nomeTransicao] =
-                        $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($nomeTransicao));
-                }
-            }
-        }
-
-        return $transicoesVisiveis;
     }
 
     /**
