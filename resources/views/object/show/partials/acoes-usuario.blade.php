@@ -1,7 +1,7 @@
 {{-- Botões de ação disponíveis para o usuário no estado atual.
      Usa workflowObjectData['transicoesVisiveis'] preparado no controller. --}}
+<h4><strong>Selecionar Ação:</strong></h4>
 @forelse ($workflowObjectData['workflowTransitions']['allowed'] as $allwdTrans)
-    <h4><strong>Selecionar Ação:</strong></h4>
     <button type="submit"
         data-transition="{{ $allwdTrans->name }}"
         data-url="{{ route('workflows.applyTransition', $workflowObjectData['workflowObject']->id) }}"
