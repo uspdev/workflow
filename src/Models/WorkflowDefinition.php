@@ -4,6 +4,7 @@ namespace Uspdev\Workflow\Models;
 
 use App\Models\User;
 use DB;
+use Gate;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -114,7 +115,7 @@ class WorkflowDefinition extends Model
             }
         }
 
-        return false;
+        return false || Gate::allows('admin');
     }
 
     /**

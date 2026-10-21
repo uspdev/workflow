@@ -6,14 +6,7 @@
     @endif
 
     <div class="card">
-        <div class="m-3">
-            <h2 class="card-title pb-3">
-                {{ $workflowObjectData['workflowDefinition']->definition['name'] }}
-                @if ($workflowObjectData['workflowObject']->id != 0)
-                    - ID {{ $workflowObjectData['workflowObject']->id }}
-                @endif
-            </h2>
-
+        <div class="m-3">   
             @include('uspdev-workflow::object.show.partials.user-guidance')
             @include('uspdev-workflow::object.show.partials.acoes-usuario')
             @include('uspdev-workflow::object.show.partials.todas-transicoes-admin')
