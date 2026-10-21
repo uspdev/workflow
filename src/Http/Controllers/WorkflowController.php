@@ -225,7 +225,6 @@ class WorkflowController extends Controller
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
-
     public function deleteObject($workflowObjectId)
     {
         Workflo::deletarWorkflow($workflowObjectId);

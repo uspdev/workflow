@@ -84,6 +84,7 @@ class WorkflowObject extends Model
                     {
                         $form->key = $this->id; 
                         $formHtml = $form->render();
+                        $formHtml = str_replace('<form action=""', '<form action="' . route('workflows.showObject', $this->id). '"', $formHtml);
                         $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
                         $statesString = implode(', ', array_keys($this->current_places));
                         $formHtml = str_replace("place_name", $statesString, $formHtml);
@@ -95,6 +96,7 @@ class WorkflowObject extends Model
                         $enabledForms[] = $formData;
                         
                     }
+                dd($formHtml);
             }
         }
 
@@ -509,7 +511,7 @@ class WorkflowObject extends Model
                     'form_key' => (string) $object->getKey(),
                 ]));
                 $formRequest->setUserResolver(fn (): ?User => $user);
-
+                
                 $formSubmission = Forms::submit($formRequest);
             }
 
