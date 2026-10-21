@@ -160,9 +160,9 @@ class Workflow
     {
         $codpes_rem = $request->input('codpes_rem');
         $codpes_add = $request->input('codpes_add');
-        $roleName = $request->input('role');
         $wf_id = $request->input('wf_id');
-        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$wf_id;
+        $roleName = $request->input('role') . $wf_id;
+        $guard_name = 'web'; // config('uspdev-workflow.guard_name', 'workflow_').$wf_id;
         $user = Auth::user();
         if (! $user->hasPermissionTo($roleName, $guard_name) && ! Gate::allows('admin')) {
             return response()->json(['alert-danger' => 'Você não tem permissão para gerenciar este departamento.'], 403);
