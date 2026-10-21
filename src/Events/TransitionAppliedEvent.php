@@ -23,7 +23,7 @@ class TransitionAppliedEvent
         public string $transitionLabel,
         public string $fromPlace,
         public array $toPlace,
-        public array $destRoles
+        public array $dest
         
     )
     {

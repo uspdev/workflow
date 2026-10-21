@@ -3,6 +3,7 @@
 namespace Uspdev\Workflow;
 
 use Illuminate\Database\Eloquent\Collection;
+use Spatie\Permission\Models\Permission;
 use stdClass;
 use App\Models\User;
 use Uspdev\Forms\Facades\Forms;
@@ -161,29 +162,33 @@ class Workflow
         $codpes_add = $request->input('codpes_add');
         $roleName = $request->input('role');
         $wf_id = $request->input('wf_id');
-        
-        $roleNameF = $roleName . '_wf_' . $wf_id;
-        
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$wf_id;
         
         $user      = Auth::user();
-        if (! $user->hasRole($roleNameF) && ! Gate::allows('admin')) {
+        if (! $user->hasPermissionTo($roleName, $guard_name) && ! Gate::allows('admin')) {
             return response()->json(['alert-danger' => 'Você não tem permissão para gerenciar este departamento.'], 403);
         }
 
         if ($codpes_rem) {
             $userToRemove = User::where('codpes', $codpes_rem)->first();
             if ($userToRemove) {
-                $userToRemove->removeRole($roleNameF);
+                $perm = Permission::where([
+                        'name' => $roleName,
+                        'guard_name' => $guard_name
+                    ])->first();
+
+                $userToRemove->revokePermissionTo($perm);
                 $request->session()->flash('alert-warning', 'Usuário removido com sucesso!');
             }
         }
+        
 
         if ($codpes_add) {
             $userToAdd = User::findOrCreateFromReplicado($codpes_add);
             if ($userToAdd) {
-                $role = Role::findOrCreate($roleNameF);
-                // dd($role);
-                $userToAdd->assignRole($role);
+                $perm = Permission::findOrCreate($roleName, $guard_name);
+                $userToAdd->givePermissionTo($perm);
+
                 $request->session()->flash('alert-success', 'Usuário adicionado com sucesso!');
             }
         }
