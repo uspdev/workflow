@@ -103,7 +103,7 @@ class WorkflowDefinition extends Model
             if($user->hasPermissionTo($roleName . $this->id, $guard_name))
             { return true; }
 
-            $role = $allRoles->where('name', $roleName . $this->id)->firstOrFail();
+            $role = $allRoles->where('name', $roleName . $this->id)->first();
             
             // Trata o caso em que a role está associada à uma permission por 'source'
             if(isset($role->source) && $role->source[0] == '*')
