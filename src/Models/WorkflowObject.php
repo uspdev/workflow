@@ -81,22 +81,21 @@ class WorkflowObject extends Model
             {
                 $form = Forms::definition($transition_form->name, $transition_form->version);
                 if($form)
-                    {
-                        $form->key = $this->id; 
-                        $formHtml = $form->render();
-                        $formHtml = str_replace('<form action=""', '<form action="' . route('workflows.showObject', $this->id). '"', $formHtml);
-                        $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
-                        $statesString = implode(', ', array_keys($this->current_places));
-                        $formHtml = str_replace("place_name", $statesString, $formHtml);
-                        $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                {
+                    $form->key = $this->id; 
+                    $formHtml = $form->render();
+                    $formHtml = str_replace('<form action=""', '<form action="' . route('workflows.showObject', $this->id). '"', $formHtml);
+                    $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
+                    $statesString = implode(', ', array_keys($this->current_places));
+                    $formHtml = str_replace("place_name", $statesString, $formHtml);
+                    $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                    $formHtml = str_replace('</form>', '<input type="hidden" id="return_to" name="return_to" value="' . request()->url() . '">'. "\n" .'</form>', $formHtml);
+                    $formData['transition'] =  $transition;
+                    $formData['html'] =  $formHtml;
 
-                        $formData['transition'] =  $transition;
-                        $formData['html'] =  $formHtml;
-
-                        $enabledForms[] = $formData;
-                        
-                    }
-                dd($formHtml);
+                    $enabledForms[] = $formData;
+                    
+                }
             }
         }
 
