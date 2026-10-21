@@ -217,10 +217,11 @@ class WorkflowController extends Controller
      */
     public function showObject(int $id): View
     {
+        /** @var WorkflowObject */
+        $workflowObj = WorkflowObject::find($id);
         
-        $workflowObjectData = WorkflowObject::getObjectData($id);
-        $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
-
+        $workflowObjectData = $workflowObj->getObjectData();
+        
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
     }
 
@@ -338,66 +339,6 @@ class WorkflowController extends Controller
         return $resultado;
     }
 
-    /**
-     * Monta orientações ao usuário, baseado no place atual em que objeto se encontra e nas transitions
-     * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
-     * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
-     * @param array $workflowObjectData
-     * @return array{acoesDisponiveis: array, estadosAtuais: mixed, mensagem: string, titulo: string, variante: string}
-     */
-    private function construirOrientacaoUsuario(array $workflowObjectData): array
-    {
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        // Obter as chaves dos estados atuais do objeto e mapear para suas descrições
-        $chavesEstadoAtual = array_values($workflowObjectData['workflowObject']->current_places ?? []);
-        $descricoesEstadoAtual = collect($chavesEstadoAtual)
-            ->map(function ($chaveEstado) use ($lugares) {
-                return $lugares[$chaveEstado]['description'] ?? $chaveEstado;
-            })
-            ->values()
-            ->all();
-
-        $transicoesDisponiveis = $this->obterTransicoesVisiveisParaUsuario($workflowObjectData);
-        if (! empty($transicoesDisponiveis)) {
-            return [
-                'variante' => 'warning',
-                'titulo' => 'Ação necessária',
-                'mensagem' => 'Existe uma ação pendente para você nesta solicitação.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => array_values($transicoesDisponiveis),
-            ];
-        }
-
-        $textoEstados = Str::lower(implode(' ', $descricoesEstadoAtual));
-
-        if (Str::contains($textoEstados, ['analise', 'análise', 'conferencia', 'conferência', 'deliberar'])) {
-            return [
-                'variante' => 'info',
-                'titulo' => 'Em análise',
-                'mensagem' => 'Seu formulário está em análise. Nenhuma ação necessária no momento.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => [],
-            ];
-        }
-
-        if (Str::contains($textoEstados, ['concluido', 'concluído', 'finalizado', 'deferido', 'indeferido'])) {
-            return [
-                'variante' => 'success',
-                'titulo' => 'Processo concluído',
-                'mensagem' => 'A solicitação foi finalizada. Nenhuma ação necessária no momento.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => [],
-            ];
-        }
-
-        return [
-            'variante' => 'info',
-            'titulo' => 'Acompanhamento da solicitação',
-            'mensagem' => 'Nenhuma ação necessária no momento.',
-            'estadosAtuais' => $descricoesEstadoAtual,
-            'acoesDisponiveis' => [],
-        ];
-    }
 
     /**
      * Constrói o histórico de estados do objeto, ou seja, quais foram as transitions executadas (ou 
