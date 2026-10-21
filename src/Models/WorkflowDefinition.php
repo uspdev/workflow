@@ -54,7 +54,7 @@ class WorkflowDefinition extends Model
     private function deployRoles()
     {
         $roles = $this->definition['roles'];
-
+        
         foreach($roles as $roleData)
         {
             Permission::firstOrCreate(
