@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Str;
 use Uspdev\Forms\Facades\Forms;
 use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Forms\Models\FormSubmission;
@@ -213,6 +214,69 @@ class WorkflowObject extends Model
                 }
             }
         });
+    }
+
+    /**
+     * Monta orientações ao usuário, baseado no place atual em que objeto se encontra e nas transitions
+     * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
+     * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
+     * @param Collection<int, TransitionDefinition> $allowedTransitions
+     * @return array{acoesDisponiveis: array, estadosAtuais: mixed, mensagem: string, titulo: string, variante: string}
+     */
+    private function construirOrientacaoUsuario(Collection $allowedTransitions): array
+    {
+        $currPlaces = $this->currentPlaces();
+        $currPlaceDesc = [];
+        foreach($currPlaces as $currPlace)
+        {
+            $currPlaceDesc[] = $currPlace->label ?? $currPlace->name;
+        }
+
+        $allwdTransLabel = $allowedTransitions->map(function ($transition){
+            return data_get($transition, 'label') ?: data_get($transition, 'name');
+        })
+        ->values()
+        ->all();
+
+        if (!$allowedTransitions->isEmpty()) {
+            return [
+                'variante' => 'warning',
+                'titulo' => 'Ação necessária',
+                'mensagem' => 'Existe uma ação pendente para você nesta solicitação.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => $allwdTransLabel,
+            ];
+        }
+
+        $textoEstados = Str::lower(implode(' ', $currPlaceDesc));
+
+        if (Str::contains($textoEstados, ['analise', 'análise', 'conferencia', 'conferência', 'deliberar'])) {
+            return [
+                'variante' => 'info',
+                'titulo' => 'Em análise',
+                'mensagem' => 'Seu formulário está em análise. Nenhuma ação necessária no momento.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => [],
+            ];
+        }
+
+        if (Str::contains($textoEstados, ['concluido', 'concluído', 'finalizado', 'deferido', 'indeferido'])) {
+            return [
+                'variante' => 'success',
+                'titulo' => 'Processo concluído',
+                'mensagem' => 'A solicitação foi finalizada. Nenhuma ação necessária no momento.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => [],
+            ];
+        }
+
+        return [
+            'variante' => 'info',
+            'titulo' => 'Acompanhamento da solicitação',
+            'mensagem' => 'Nenhuma ação necessária no momento.',
+            'estadosAtuais' => $currPlaceDesc,
+            'acoesDisponiveis' => [],
+        ];
     }
 
     /**
