@@ -280,6 +280,68 @@ class WorkflowObject extends Model
     }
 
     /**
+     * Constrói o histórico de estados do objeto, ou seja, quais foram as transitions 
+     * executadas (ou seja, quais foram as submissões de formulário realizadas) e ,portanto, 
+     * qual place fora percorrido ou não, quando houve retorno para o usuário, entre outros 
+     * detalhes, gerando assim uma descrição legível dos acontecimentos do workflow para o 
+     * usuário.
+     * 
+     * @return array<
+     *              array{
+     *                      action: string, 
+     *                      created_at: mixed, 
+     *                      form_sub_id: mixed, 
+     *                      froms: array, 
+     *                      metadata: mixed, 
+     *                      tos: array, 
+     *                      updated_at: mixed, 
+     *                      user_codpes: mixed
+     *                    }
+     *              >
+     */
+    private function construirHistoricoEstados(): array
+    {
+        $historicoEstados = [];
+
+        /** @var WorkflowDefinition */
+        $workflowDef = $this->def;
+
+        /** @var WorkflowHistory */
+        $wfHistory = $this->history;
+        
+        foreach($wfHistory as $history)
+        {
+            $actLbl = $workflowDef->transition($history['transition_name'])->label;
+            $userCodpes = User::where('id', $history['user_id'])->value('codpes');
+
+            $fromLbls = [];
+            foreach($history['from_places'] as $from)
+            {
+                $fromLbls[] = $workflowDef->place($from)->label;    
+            }
+
+            $toLbls = [];
+            foreach($history['to_places'] as $to)
+            {
+                $toLbls[] = $workflowDef->place($to)->label;    
+            }
+
+            $historicoEstados[] = [
+                'action' => $actLbl,
+                'froms' => $fromLbls,
+                'tos' => $toLbls,
+                'user_codpes' => $userCodpes,
+                'form_sub_id' => $history['form_submission_id'],
+                'metadata' => $history['meatadata'],
+                'created_at' => $history['created_at']->format('d/m/Y H:i:s'),
+                'updated_at' => $history['updated_at']->format('d/m/Y H:i:s'),
+            ];
+        }
+
+        return $historicoEstados;
+    }
+
+    /**
      *  Retorna dados relevantes referentes um objeto de workflow
      *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
@@ -345,7 +407,9 @@ class WorkflowObject extends Model
             'forms'                 => $forms,
             'name'                  => $title,
             'activities'            => $activities,
-            'formSubmissions'       => collect($formSubmissions) ?? collect([])
+            'formSubmissions'       => collect($formSubmissions) ?? collect([]),
+            'orientacaoUsuario'     => $this->construirOrientacaoUsuario($allowedTransitions),
+            'historicoEstados'      => $this->construirHistoricoEstados(),
         ];
 
         return $workflowObjectData;
