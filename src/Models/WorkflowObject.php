@@ -221,9 +221,15 @@ class WorkflowObject extends Model
      * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
      * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
      * @param Collection<int, TransitionDefinition> $allowedTransitions
-     * @return array{acoesDisponiveis: array, estadosAtuais: mixed, mensagem: string, titulo: string, variante: string}
+     * @return array{
+     *                  acoesDisponiveis: array, 
+     *                  estadosAtuais: mixed, 
+     *                  mensagem: string, 
+     *                  titulo: string, 
+     *                  variante: string
+     * }
      */
-    private function construirOrientacaoUsuario(Collection $allowedTransitions): array
+    private function buildUserGuidance(Collection $allowedTransitions): array
     {
         $currPlaces = $this->currentPlaces();
         $currPlaceDesc = [];
@@ -299,7 +305,7 @@ class WorkflowObject extends Model
      *                    }
      *              >
      */
-    private function construirHistoricoEstados(): array
+    private function buildHistory(): array
     {
         $historicoEstados = [];
 
@@ -408,8 +414,8 @@ class WorkflowObject extends Model
             'name'                  => $title,
             'activities'            => $activities,
             'formSubmissions'       => collect($formSubmissions) ?? collect([]),
-            'orientacaoUsuario'     => $this->construirOrientacaoUsuario($allowedTransitions),
-            'historicoEstados'      => $this->construirHistoricoEstados(),
+            'orientacaoUsuario'     => $this->buildUserGuidance($allowedTransitions),
+            'historicoEstados'      => $this->buildHistory(),
         ];
 
         return $workflowObjectData;
