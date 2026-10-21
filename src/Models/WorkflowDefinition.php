@@ -59,8 +59,8 @@ class WorkflowDefinition extends Model
         {
             Permission::firstOrCreate(
                 [
-                    'name' => $roleData['name'],
-                    'guard_name' => config('uspdev-workflow.guard_name', 'workflow_').$this->id,
+                    'name' => $roleData['name'] . $this->id,
+                    'guard_name' =>  'web', //config('uspdev-workflow.guard_name', 'workflow_').$this->id,
                 ]
             );
         }
@@ -72,12 +72,12 @@ class WorkflowDefinition extends Model
      */
     private function deleteRoles(): void
     {
-        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+        $guard_name = 'web'; // config('uspdev-workflow.guard_name', 'workflow_').$this->id;
 
         $roles = $this->definition['roles'];
         foreach($roles as $roleData)
         {
-            Permission::where(['name' => $roleData['name'], 'guard_name' => $guard_name])->delete();
+            Permission::where(['name' => $roleData['name'] . $this->id, 'guard_name' => $guard_name])->delete();
         }
     }
 
@@ -91,17 +91,18 @@ class WorkflowDefinition extends Model
      */
     public function verifyRole(string|array $roleNames, User $user): bool
     {
-        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+        // TODO - Lógica do guar_name não funciona para permissions também, resolver isso ! (Ver no senhaunica o que eles fazem)
+        $guard_name = 'web'; // config('uspdev-workflow.guard_name', 'workflow_').$this->id;
 
         if(!is_array($roleNames)){ $roleNames = [$roleNames]; }
         $allRoles = $this->getDefinitionData()->roles;
 
         foreach($roleNames as $roleName)
         {
-            if($user->hasPermissionTo($roleName, $guard_name))
+            if($user->hasPermissionTo($roleName . $this->id, $guard_name))
             { return true; }
 
-            $role = $allRoles->where('name', $roleName)->firstOrFail();
+            $role = $allRoles->where('name', $roleName . $this->id)->firstOrFail();
             
             // Trata o caso em que a role está associada à uma permission por 'source'
             if(isset($role->source) && $role->source[0] == '*')
