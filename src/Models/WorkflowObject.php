@@ -304,7 +304,7 @@ class WorkflowObject extends Model
         $historicoEstados = [];
 
         /** @var WorkflowDefinition */
-        $workflowDef = $this->def;
+        $workflowDef = $this->definition;
 
         /** @var WorkflowHistory */
         $wfHistory = $this->history;
@@ -479,7 +479,7 @@ class WorkflowObject extends Model
         }
 
         DB::transaction(function () use ($transitionName, $transition, $user, $inputData): void {
-            /** @var WorkflowObject $object */
+            /** @var WorkflowObject */
             $object = self::query()->lockForUpdate()->findOrFail($this->getKey());
             if (!$object->can($transitionName, $user)) {
                 throw new TransitionNotAllowedException("Você não tem permissão para executar a ação '{$transitionName}' no estado atual.");
