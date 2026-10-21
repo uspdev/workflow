@@ -246,8 +246,13 @@ class WorkflowController extends Controller
         
         $workflow_object = WorkflowObject::findOrFail($id);
         $workflow_object->apply($request->input('transition'), $request->all(), Auth()->user());
+        
+        // $return_to armazena a url de retorno, dado que a view do estado do objeto é dependente da aplicação. Dessa forma, return_to explicita a url de retorno, necessária quando há formulário na transição.
+        $return_to = $request->input('return_to');
 
-        return redirect()->route('workflows.showObject', ['id' => $workflow_object->id]);
+        // Verifica se return_to está setado, se não, retorna para a rota de origem
+        if(isset($return_to)){ return redirect()->to($return_to); }
+        return redirect()->back();
     }
 
     /**
