@@ -205,14 +205,7 @@ class WorkflowObject extends Model
     private function getAllowedTransitions(WorkflowDefinition $workflowDef, Collection $enabledTransitions, User $user): Collection
     {
         return $enabledTransitions->filter(function ($enTrans) use ($workflowDef, $user){
-            $places = $workflowDef->definition['places'];
-            foreach($places as $place)
-            {
-                if($enTrans->from === $place['name'])
-                {
-                    return $workflowDef->verifyRole($place['roles'], $user);
-                }
-            }
+            return $this->can($enTrans->name, $user);
         });
     }
 
@@ -221,7 +214,8 @@ class WorkflowObject extends Model
      * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
      * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
      * @param Collection<int, TransitionDefinition> $allowedTransitions
-     * @return array{
+     * @return array
+     *                 {
      *                  acoesDisponiveis: array, 
      *                  estadosAtuais: mixed, 
      *                  mensagem: string, 
@@ -392,11 +386,19 @@ class WorkflowObject extends Model
         $enabledTransitions = $this->enabledTransitions();
         $allowedTransitions = $this->getAllowedTransitions($workflowDefinition, $enabledTransitions, auth()->user());
 
+        $enabledNames = [];
+        foreach($enabledTransitions as $enTrans){ $enabledNames[] = $enTrans->name; }
+
+        $allwdNames = [];
+        foreach($allowedTransitions as $allwTrans){ $allwdNames[] = $allwTrans->name; }
+
         $workflowTransitions = [
             'enabled'       => $enabledTransitions,
+            'enabledNames'  => $enabledNames,
             'all'           => $workflowDefinition->transitions(),
-            'currentSatte'  => $this->current_places,
+            'currentState'  => $this->current_places,
             'allowed'       => $allowedTransitions,
+            'allowedNames'  => $allwdNames
         ];
         
         $forms = $this->buildEnabledForms();
@@ -611,14 +613,14 @@ class WorkflowObject extends Model
     public function can(string $transition, ?User $user = null): bool
     {
         /** @var WorkflowDefinition */
-        $workflowDefinition = $this->definition()->first();
+        $workflowDefinition = $this->definition;
         if ($workflowDefinition === null) {
             return false;
         }
 
         $definitionData = $workflowDefinition->getDefinitionData();
         $transitionData = $definitionData->transition($transition);
-        if ($transitionData === null || !in_array($transitionData->from, $this->current_places, true)) {
+        if ($transitionData === null || !in_array($transitionData->from, $this->current_places)) {
             return false;
         }
 
@@ -627,12 +629,7 @@ class WorkflowObject extends Model
             return true;
         }
         
-        $hasRole = false;
-        foreach($roles as $role)
-        {
-            $hasRole = $workflowDefinition->verifyRole($role, $user);
-            if($hasRole){ break; }
-        }
+        $hasRole = $workflowDefinition->verifyRole($roles, $user);
 
         return $user !== null && ($hasRole || Gate::allows('admin'));
     }
