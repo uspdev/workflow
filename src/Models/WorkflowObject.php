@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Str;
 use Uspdev\Forms\Facades\Forms;
 use Uspdev\Forms\Models\FormDefinition;
 use Uspdev\Forms\Models\FormSubmission;
@@ -80,20 +81,21 @@ class WorkflowObject extends Model
             {
                 $form = Forms::definition($transition_form->name, $transition_form->version);
                 if($form)
-                    {
-                        $form->key = $this->id; 
-                        $formHtml = $form->render();
-                        $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
-                        $statesString = implode(', ', array_keys($this->current_places));
-                        $formHtml = str_replace("place_name", $statesString, $formHtml);
-                        $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                {
+                    $form->key = $this->id; 
+                    $formHtml = $form->render();
+                    $formHtml = str_replace('<form action=""', '<form action="' . route('workflows.showObject', $this->id). '"', $formHtml);
+                    $formHtml = str_replace("workflowDefinitionName", $this->definition->name, $formHtml);
+                    $statesString = implode(', ', array_keys($this->current_places));
+                    $formHtml = str_replace("place_name", $statesString, $formHtml);
+                    $formHtml = str_replace("transition_name", $transition->name, $formHtml);
+                    $formHtml = str_replace('</form>', '<input type="hidden" id="return_to" name="return_to" value="' . request()->url() . '">'. "\n" .'</form>', $formHtml);
+                    $formData['transition'] =  $transition;
+                    $formData['html'] =  $formHtml;
 
-                        $formData['transition'] =  $transition;
-                        $formData['html'] =  $formHtml;
-
-                        $enabledForms[] = $formData;
-                        
-                    }
+                    $enabledForms[] = $formData;
+                    
+                }
             }
         }
 
@@ -191,6 +193,156 @@ class WorkflowObject extends Model
     }
 
     /**
+     * Recupera as transitions as quais o usuário tem possibilidade de enxergar, baseado nos papéis
+     * do place atual que o objeto se encontra, referenciado em '$workflowObjectData', e nas transitions 
+     * habilitadas para o objeto. Admins podem visualizar todas as transitions habilitadas.
+     * 
+     * @param WorkflowDefinition $workflowDef
+     * @param Collection<int, TransitionDefinition> $enabledTransitions
+     * @param User $user
+     * 
+     * @return Collection<int, TransitionDefinition>
+     */
+    private function getAllowedTransitions(WorkflowDefinition $workflowDef, Collection $enabledTransitions, User $user): Collection
+    {
+        return $enabledTransitions->filter(function ($enTrans) use ($workflowDef, $user){
+            return $this->can($enTrans->name, $user);
+        });
+    }
+
+    /**
+     * Monta orientações ao usuário, baseado no place atual em que objeto se encontra e nas transitions
+     * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
+     * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
+     * @param Collection<int, TransitionDefinition> $allowedTransitions
+     * @return array
+     *                 {
+     *                  acoesDisponiveis: array, 
+     *                  estadosAtuais: mixed, 
+     *                  mensagem: string, 
+     *                  titulo: string, 
+     *                  variante: string
+     * }
+     */
+    private function buildUserGuidance(Collection $allowedTransitions): array
+    {
+        $currPlaces = $this->currentPlaces();
+        $currPlaceDesc = [];
+        foreach($currPlaces as $currPlace)
+        {
+            $currPlaceDesc[] = $currPlace->label ?? $currPlace->name;
+        }
+
+        $allwdTransLabel = $allowedTransitions->map(function ($transition){
+            return data_get($transition, 'label') ?: data_get($transition, 'name');
+        })
+        ->values()
+        ->all();
+
+        if (!$allowedTransitions->isEmpty()) {
+            return [
+                'variante' => 'warning',
+                'titulo' => 'Ação necessária',
+                'mensagem' => 'Existe uma ação pendente para você nesta solicitação.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => $allwdTransLabel,
+            ];
+        }
+
+        $textoEstados = Str::lower(implode(' ', $currPlaceDesc));
+
+        if (Str::contains($textoEstados, ['analise', 'análise', 'conferencia', 'conferência', 'deliberar'])) {
+            return [
+                'variante' => 'info',
+                'titulo' => 'Em análise',
+                'mensagem' => 'Seu formulário está em análise. Nenhuma ação necessária no momento.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => [],
+            ];
+        }
+
+        if (Str::contains($textoEstados, ['concluido', 'concluído', 'finalizado', 'deferido', 'indeferido'])) {
+            return [
+                'variante' => 'success',
+                'titulo' => 'Processo concluído',
+                'mensagem' => 'A solicitação foi finalizada. Nenhuma ação necessária no momento.',
+                'estadosAtuais' => $currPlaceDesc,
+                'acoesDisponiveis' => [],
+            ];
+        }
+
+        return [
+            'variante' => 'info',
+            'titulo' => 'Acompanhamento da solicitação',
+            'mensagem' => 'Nenhuma ação necessária no momento.',
+            'estadosAtuais' => $currPlaceDesc,
+            'acoesDisponiveis' => [],
+        ];
+    }
+
+    /**
+     * Constrói o histórico de estados do objeto, ou seja, quais foram as transitions 
+     * executadas (ou seja, quais foram as submissões de formulário realizadas) e ,portanto, 
+     * qual place fora percorrido ou não, quando houve retorno para o usuário, entre outros 
+     * detalhes, gerando assim uma descrição legível dos acontecimentos do workflow para o 
+     * usuário.
+     * 
+     * @return array<
+     *              array{
+     *                      action: string, 
+     *                      created_at: mixed, 
+     *                      form_sub_id: mixed, 
+     *                      froms: array, 
+     *                      metadata: mixed, 
+     *                      tos: array, 
+     *                      updated_at: mixed, 
+     *                      user_codpes: mixed
+     *                    }
+     *              >
+     */
+    private function buildHistory(): array
+    {
+        $historicoEstados = [];
+
+        /** @var WorkflowDefinition */
+        $workflowDef = $this->definition;
+
+        /** @var WorkflowHistory */
+        $wfHistory = $this->history;
+        
+        foreach($wfHistory as $history)
+        {
+            $actLbl = $workflowDef->transition($history['transition_name'])->label;
+            $userCodpes = User::where('id', $history['user_id'])->value('codpes');
+
+            $fromLbls = [];
+            foreach($history['from_places'] as $from)
+            {
+                $fromLbls[] = $workflowDef->place($from)->label;    
+            }
+
+            $toLbls = [];
+            foreach($history['to_places'] as $to)
+            {
+                $toLbls[] = $workflowDef->place($to)->label;    
+            }
+
+            $historicoEstados[] = [
+                'action' => $actLbl,
+                'froms' => $fromLbls,
+                'tos' => $toLbls,
+                'user_codpes' => $userCodpes,
+                'form_sub_id' => $history['form_submission_id'],
+                'metadata' => $history['meatadata'],
+                'created_at' => $history['created_at']->format('d/m/Y H:i:s'),
+                'updated_at' => $history['updated_at']->format('d/m/Y H:i:s'),
+            ];
+        }
+
+        return $historicoEstados;
+    }
+
+    /**
      *  Retorna dados relevantes referentes um objeto de workflow
      *  Com o id correspondente ao passado de parâmetro na chamada do método
      * 
@@ -212,7 +364,7 @@ class WorkflowObject extends Model
      *                              enabled: Collection<int, TransitionDefinition>, 
      *                              all:Collection<int, TransitionDefinition>, 
      *                              currentState: array,                         
-     *                              allowed: array
+     *                              allowed: Collection<int, TransitionDefinition>
      *                              }, 
      *  forms: array<string,TransitionDefinition>, 
      *  name: string, 
@@ -227,33 +379,48 @@ class WorkflowObject extends Model
      *  formSubmissions: Collection<int, FormSubmission>
      * }
      */
-    public static function getObjectData(int $object_id): array
+    public function getObjectData(): array
     {
-        /** @var WorkflowObject */
-        $workflowObject = WorkflowObject::findOrFail($object_id);
         /** @var WorkflowDefinition */
-        $workflowDefinition = $workflowObject->definition;
+        $workflowDefinition = $this->definition;
 
-        $workflowsTransitions['enabled'] = $workflowObject->enabledTransitions();
-        $workflowsTransitions['all'] =  $workflowDefinition->transitions();
-        $workflowsTransitions['currentState'] =  $workflowObject->current_places;
-        $workflowsTransitions['allowed'] = [];
+        $enabledTransitions = $this->enabledTransitions();
+        $allowedTransitions = $this->getAllowedTransitions($workflowDefinition, $enabledTransitions, auth()->user());
+
+        $enabledNames = [];
+        foreach($enabledTransitions as $enTrans){ $enabledNames[] = $enTrans->name; }
+
+        $allwdNames = [];
+        foreach($allowedTransitions as $allwTrans){ $allwdNames[] = $allwTrans->name; }
+
+        $workflowTransitions = [
+            'enabled'       => $enabledTransitions,
+            'enabledNames'  => $enabledNames,
+            'all'           => $workflowDefinition->transitions(),
+            'currentState'  => $this->current_places,
+            'allowed'       => $allowedTransitions,
+            'allowedNames'  => $allwdNames
+        ];
         
-        $forms = $workflowObject->buildEnabledForms();
+        $forms = $this->buildEnabledForms();
 
         $title = $workflowDefinition->definition['label'] ?? $workflowDefinition->name;
-        $activities = SELF::obterAtividades($workflowObject->id);
+        $activities = SELF::obterAtividades($this->id);
         
-        $formSubmissions = $workflowObject->viewableSubmissions($workflowsTransitions['all']);
+        $formSubmissions = $this->viewableSubmissions($workflowTransitions['all']);
         
-        $workflowObjectData['workflowObject'] = $workflowObject;
-        $workflowObjectData['workflowDefinition'] = $workflowDefinition;
-        $workflowObjectData['workflowsTransitions'] = $workflowsTransitions;
-        $workflowObjectData['forms'] = $forms;
-        $workflowObjectData['name'] = $title;
-        $workflowObjectData['activities'] = $activities;
-        $workflowObjectData['formSubmissions'] = collect($formSubmissions) ?? collect([]);
-        
+        $workflowObjectData = [
+            'workflowObject'        => $this,
+            'workflowDefinition'    => $workflowDefinition,
+            'workflowTransitions'   => $workflowTransitions,
+            'forms'                 => $forms,
+            'name'                  => $title,
+            'activities'            => $activities,
+            'formSubmissions'       => collect($formSubmissions) ?? collect([]),
+            'orientacaoUsuario'     => $this->buildUserGuidance($allowedTransitions),
+            'historicoEstados'      => $this->buildHistory(),
+        ];
+
         return $workflowObjectData;
     }
 
@@ -321,7 +488,7 @@ class WorkflowObject extends Model
         }
 
         DB::transaction(function () use ($transitionName, $transition, $user, $inputData): void {
-            /** @var WorkflowObject $object */
+            /** @var WorkflowObject */
             $object = self::query()->lockForUpdate()->findOrFail($this->getKey());
             if (!$object->can($transitionName, $user)) {
                 throw new TransitionNotAllowedException("Você não tem permissão para executar a ação '{$transitionName}' no estado atual.");
@@ -343,7 +510,7 @@ class WorkflowObject extends Model
                     'form_key' => (string) $object->getKey(),
                 ]));
                 $formRequest->setUserResolver(fn (): ?User => $user);
-
+                
                 $formSubmission = Forms::submit($formRequest);
             }
 
@@ -447,14 +614,14 @@ class WorkflowObject extends Model
     public function can(string $transition, ?User $user = null): bool
     {
         /** @var WorkflowDefinition */
-        $workflowDefinition = $this->definition()->first();
+        $workflowDefinition = $this->definition;
         if ($workflowDefinition === null) {
             return false;
         }
 
         $definitionData = $workflowDefinition->getDefinitionData();
         $transitionData = $definitionData->transition($transition);
-        if ($transitionData === null || !in_array($transitionData->from, $this->current_places, true)) {
+        if ($transitionData === null || !in_array($transitionData->from, $this->current_places)) {
             return false;
         }
 
@@ -463,12 +630,7 @@ class WorkflowObject extends Model
             return true;
         }
         
-        $hasRole = false;
-        foreach($roles as $role)
-        {
-            $hasRole = $workflowDefinition->verifyRole($role, $user);
-            if($hasRole){ break; }
-        }
+        $hasRole = $workflowDefinition->verifyRole($roles, $user);
 
         return $user !== null && ($hasRole || Gate::allows('admin'));
     }
