@@ -588,4 +588,16 @@ class WorkflowDefinition extends Model
 
         return $workflowData;
     }
+
+    /**
+     * Retorna todas as definições cujo status é 'PUBLISHED'
+     * @return Collection<int, WorkflowDefinition>
+     */
+    public static function getAllPublished()
+    {
+        $all = SELF::all();
+        return $all->filter(function($workflowDef){
+                return $workflowDef->status === WorkflowStatus::PUBLISHED;
+        });
+    }
 }
