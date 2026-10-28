@@ -79,7 +79,7 @@ class WorkflowDefinition extends Model
         $roles = $this->definition['roles'];
         foreach($roles as $roleData)
         {
-            Permission::where(['name' => $roleData['name'] . $this->id, 'guard_name' => $guard_name])->delete();
+            Role::where(['name' => $roleData['name'], 'guard_name' => $guard_name])->delete();
         }
     }
 
