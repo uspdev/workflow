@@ -63,14 +63,14 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Define o relacionamento entre um usuário e um place específico do workflow,
+     * Define o relacionamento entre um usuário e uma role específica do workflow,
      * baseados nos dados da requisição '$request'.
      * @param Request $request
      * @return RedirectResponse
      */
-    public function setUser(Request $request): RedirectResponse 
+    public function mngUserRole(Request $request): RedirectResponse 
     {
-        Workflow::definirUsuarios($request);
+        WorkflowDefinition::mngUsrRoleRelation($request);
 
         return back();
     }

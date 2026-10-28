@@ -13,6 +13,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -599,5 +600,51 @@ class WorkflowDefinition extends Model
         return $all->filter(function($workflowDef){
                 return $workflowDef->status === WorkflowStatus::PUBLISHED;
         });
+    }
+
+    /**
+     * Gerencia o relacionamento de um usuário com a role da definição (atribuindo-a 
+     * ou removendo-a do usuário)
+     * @param Integer $request->codpes_rem
+     * @param Integer $request->codpes_add
+     * @param String $request->place
+     * @param String $request->workflowDefinitionName     
+    */
+    public static function mngUsrRoleRelation(Request $request)
+    {
+        $codpes_rem = $request->input('codpes_rem');
+        $codpes_add = $request->input('codpes_add');
+        $wf_id = $request->input('wf_id');
+        $roleName = $request->input('role');
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$wf_id;
+        $user = Auth::user();
+
+        if (! $user->hasRole($roleName, $guard_name) && ! Gate::allows('admin')) {
+            return response()->json(['alert-danger' => 'Você não tem permissão para gerenciar este departamento.'], 403);
+        }
+
+        if ($codpes_rem) {
+            $userToRemove = User::where('codpes', $codpes_rem)->first();
+            if ($userToRemove) {
+                $role = Role::where([
+                        'name' => $roleName,
+                        'guard_name' => $guard_name
+                    ])->first();
+
+                $userToRemove->removeRole($role);
+                $request->session()->flash('alert-warning', 'Usuário removido com sucesso!');
+            }
+        }
+        
+
+        if ($codpes_add) {
+            $userToAdd = User::findOrCreateFromReplicado($codpes_add);
+            if ($userToAdd) {
+                $role = Role::findOrCreate($roleName, $guard_name);
+                $userToAdd->assignRole($role);
+
+                $request->session()->flash('alert-success', 'Usuário adicionado com sucesso!');
+            }
+        }
     }
 }

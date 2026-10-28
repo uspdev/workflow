@@ -28,7 +28,7 @@ Route::group(['prefix' => config('uspdev-workflow.prefix'), 'middleware' => ['we
     Route::post('/apply-transition/{id}', [WorkflowController::class, 'applyTransition'])->name('workflows.applyTransition');
     Route::delete('/delete-object/{object}', [WorkflowController::class, 'deleteObject'])->name('workflows.delete-object');
 
-    Route::put('/listdefinitions/setuser', [WorkflowController::class, 'setUser'])->name('workflows.setuser');
+    Route::put('/listdefinitions/setuser', [WorkflowController::class, 'mngUserRole'])->name('workflows.setuser');
     Route::get('/atendimentos', [WorkflowController::class, 'atendimentos'])->name('workflows.atendimentos');
 
     Route::get('/backups', [WorkflowBackupController::class, 'backups_index'])->name('workflows.backups-idx');
