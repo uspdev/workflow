@@ -58,10 +58,10 @@ class WorkflowDefinition extends Model
         
         foreach($roles as $roleData)
         {
-            Permission::firstOrCreate(
+            Role::firstOrCreate(
                 [
                     'name' => $roleData['name'] . $this->id,
-                    'guard_name' =>  'web', //config('uspdev-workflow.guard_name', 'workflow_').$this->id,
+                    'guard_name' =>  config('uspdev-workflow.guard_name', 'workflow_').$this->id,
                 ]
             );
         }
@@ -73,7 +73,7 @@ class WorkflowDefinition extends Model
      */
     private function deleteRoles(): void
     {
-        $guard_name = 'web'; // config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
 
         $roles = $this->definition['roles'];
         foreach($roles as $roleData)
@@ -92,15 +92,14 @@ class WorkflowDefinition extends Model
      */
     public function verifyRole(string|array $roleNames, User $user): bool
     {
-        // TODO - Lógica do guar_name não funciona para permissions também, resolver isso ! (Ver no senhaunica o que eles fazem)
-        $guard_name = 'web'; // config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
 
         if(!is_array($roleNames)){ $roleNames = [$roleNames]; }
         $allRoles = $this->getDefinitionData()->roles;
 
         foreach($roleNames as $roleName)
         {
-            if($user->hasPermissionTo($roleName . $this->id, $guard_name))
+            if($user->hasRole($roleName . $this->id, $guard_name))
             { return true; }
 
             $role = $allRoles->where('name', $roleName . $this->id)->first();
@@ -111,7 +110,7 @@ class WorkflowDefinition extends Model
                 // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
                 $sourceData = explode(".", substr($role->source, 1));
                 
-                if($user->hasPermissionTo($sourceData[1], $sourceData[0])) { return true; };
+                if($user->hasRole($sourceData[1], $sourceData[0])) { return true; };
             }
         }
 
