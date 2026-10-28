@@ -1,7 +1,9 @@
 <button type="button"
         class="remover-codpes-btn btn btn-sm py-0"
         data-codpes="{{ $codpes }}"
-        data-wf-id="{{ $wf_id }}">
+        data-wf-id="{{ $wf_id }}"
+        data-role-name="{{ $role_name }}">
+        
     <i class="fas fa-trash text-danger"></i>
 </button>
 
@@ -32,8 +34,20 @@
 
             form.append($('<input>', {
                 type: 'hidden',
+                name: 'role',
+                value: $(this).data('role-name')
+            }));
+
+            form.append($('<input>', {
+                type: 'hidden',
                 name: 'wf_id',
                 value: $(this).data('wf-id')
+            }));
+
+            form.append($('<input>', {
+                type: 'hidden',
+                name: '_method',
+                value: 'PUT'
             }));
 
             $('body').append(form);
