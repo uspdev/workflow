@@ -257,6 +257,16 @@ class WorkflowDefinition extends Model
     }
 
     /**
+     * Verifica se a definição está ou não publicada, retornando true em caso 
+     * afirmativo e false c.c
+     * @return boolean
+     */
+    public function isPublished()
+    {
+        return $this->status == WorkflowStatus::PUBLISHED;
+    }
+
+    /**
      * Recupera os dados da definição da maneira formatada em WorkflowDefinitionData
      * @return WorkflowDefinitionData
      */
