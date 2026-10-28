@@ -60,7 +60,7 @@ class WorkflowDefinition extends Model
         {
             Role::firstOrCreate(
                 [
-                    'name' => $roleData['name'] . $this->id,
+                    'name' => $roleData['name'],
                     'guard_name' =>  config('uspdev-workflow.guard_name', 'workflow_').$this->id,
                 ]
             );
@@ -99,10 +99,10 @@ class WorkflowDefinition extends Model
 
         foreach($roleNames as $roleName)
         {
-            if($user->hasRole($roleName . $this->id, $guard_name))
+            if($user->hasRole($roleName, $guard_name))
             { return true; }
 
-            $role = $allRoles->where('name', $roleName . $this->id)->first();
+            $role = $allRoles->where('name', $roleName)->first();
             
             // Trata o caso em que a role está associada à uma permission por 'source'
             if(isset($role->source) && $role->source[0] == '*')
