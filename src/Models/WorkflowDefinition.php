@@ -114,7 +114,7 @@ class WorkflowDefinition extends Model
             }
         }
 
-        return false || Gate::allows('admin');
+        return false || Gate::forUser($user)->allows('admin');
     }
 
     /**
@@ -394,14 +394,15 @@ class WorkflowDefinition extends Model
 
     public static function findUsersWithRole(string $roleName, string $defName, int $defVersion)
     {
-           $workflowDef = SELF::_load($defName, $defVersion);
-           $users = User::all();
-           
-           $users = $users->filter(function($user) use ($workflowDef, $roleName){
-                return $workflowDef->verifyRole($roleName, $user);
-           });
+        
+        $workflowDef = SELF::_load($defName, $defVersion);
+        $users = User::all();
+    
+        $users = $users->filter(function($user) use ($workflowDef, $roleName){
+            return $workflowDef->verifyRole($roleName, $user);
+        });
 
-           return $users;
+        return $users;
     }
 
     // **************************************
