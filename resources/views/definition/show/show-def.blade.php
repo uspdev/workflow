@@ -20,9 +20,11 @@
                 <span class="h5">
                   {{ $role['label'] }} -
                   {{ $role['source'] ?? '' }}
+                  @if($workflowDefinitionData['workflowDefinition']->isPublished())
                   @include('uspdev-workflow::definition.partials.codpes-adicionar-btn', [
                     'wf_id' => $workflowDefinitionData['workflowDefinition']->id,
                   ])
+                  @endif
                 </span><br>
               </div>
 
@@ -31,7 +33,7 @@
                   <div class="hover">
                     <span>{{ $user->name }}</span>
                     <span class="hide">
-                      @if ($user->codpes != auth()->user()->codpes)
+                      @if ($user->codpes != auth()->user()->codpes && $workflowDefinitionData['workflowDefinition']->isPublished())
                         @include('uspdev-workflow::definition.partials.codpes-remover-btn', [
                           'codpes' => $user->codpes,
                           'wf_id' => $workflowDefinitionData['workflowDefinition']->id,
