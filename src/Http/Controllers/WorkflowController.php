@@ -149,32 +149,6 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Exibe as definições de workflow para que possa criar objetos das que desejar.
-     * @return View
-     */
-    public function viewCreateObject(): View
-    {
-        $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
-        \UspTheme::activeUrl('viewcreateobject');
-
-        return view('uspdev-workflow::object.createObject', compact('workflowDefinitions'));
-    }
-
-    /**
-     * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
-     * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
-     * @param mixed $definitionName
-     * @return RedirectResponse
-     */
-    public function createObject(string $definitionName): RedirectResponse
-    {
-        $model = new WorkflowDefinition();
-
-        $workflowObject = Workflow::start($definitionName, $model);
-        return redirect()->route('workflows.showObject', ['id' => $workflowObject->id]);
-    }
-
-    /**
      * Exibe os objetos de workflow atrelados ao usuário, ou seja, os objetos criados pelo usuário
      * ou objetos nos quais ele têm algum atendimento à fazer.
      * @return View
