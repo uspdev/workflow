@@ -13,15 +13,17 @@ trait HasWfRole
         $guardNamesCol = $this->getGuardNames();
 
         $pubDefs = WorkflowDefinition::getAllPublished();
-        /** @var array<int, string> */
-        $pubDefNames = $pubDefs->pluck('name');
         
-        foreach($pubDefNames as $pubDefName)
+        foreach($pubDefs as $pubDef)
         {
-            if(!$guardNamesCol->contains($pubDefName))
+            $pubDefGuardName = $pubDef->name . $pubDef->id;
+
+            if(!$guardNamesCol->contains($pubDefGuardName))
             {
-                $guardNamesCol->push($pubDefName);
+                $guardNamesCol->push($pubDefGuardName);
             }
         }
+
+        return $guardNamesCol;
     }
 }
