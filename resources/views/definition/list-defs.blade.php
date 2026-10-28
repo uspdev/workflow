@@ -1,7 +1,4 @@
-@extends('uspdev-workflow::layouts.app')
-
-@section('header')
-@endsection 
+@extends('uspdev-workflow::layouts.app') 
 
 @section('content')
 
