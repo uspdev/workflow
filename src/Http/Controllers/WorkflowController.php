@@ -89,8 +89,8 @@ class WorkflowController extends Controller
         $message = '';
 
         $deleted = $workflowDef->destroyDefinition();
-        if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
-        else {$status = 'danger'; $message = 'Impossível remover definition.';}
+        if($deleted){$status = 'alert-success'; $message = 'Definition apagada com sucesso.';}
+        else {$status = 'alert-danger'; $message = 'Impossível remover definition.';}
 
         return redirect()->route('workflows.list-definitions')->with($status, $message);
     }
@@ -146,32 +146,6 @@ class WorkflowController extends Controller
         $workflowDef->draft();
 
         return redirect()->back()->with('warning','Definição posta em rascunho!');
-    }
-
-    /**
-     * Exibe as definições de workflow para que possa criar objetos das que desejar.
-     * @return View
-     */
-    public function viewCreateObject(): View
-    {
-        $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
-        \UspTheme::activeUrl('viewcreateobject');
-
-        return view('uspdev-workflow::object.createObject', compact('workflowDefinitions'));
-    }
-
-    /**
-     * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
-     * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
-     * @param mixed $definitionName
-     * @return RedirectResponse
-     */
-    public function createObject(string $definitionName): RedirectResponse
-    {
-        $model = new WorkflowDefinition();
-
-        $workflowObject = Workflow::start($definitionName, $model);
-        return redirect()->route('workflows.showObject', ['id' => $workflowObject->id]);
     }
 
     /**
@@ -253,24 +227,5 @@ class WorkflowController extends Controller
         // Verifica se return_to está setado, se não, retorna para a rota de origem
         if(isset($return_to)){ return redirect()->to($return_to); }
         return redirect()->back();
-    }
-
-    /**
-     * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
-     * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
-     * objeto), exibindo-os em uma tela para o usuário.
-     * @return View
-     */
-    public function atendimentos(): View
-    {
-        \UspTheme::activeUrl('equivalencias/atendimentos');
-
-        $workflowsDisplay = Workflow::listarWorkflowsObjectsRelacionados();
-        $workflowsDisplay['workflows'] = collect($workflowsDisplay['workflows'] ?? [])
-            ->unique('id')
-            ->values();
-
-        return view('uspdev-workflow::object.userRelatedObjects', compact('workflowsDisplay'));
-
     }
 }
