@@ -254,23 +254,4 @@ class WorkflowController extends Controller
         if(isset($return_to)){ return redirect()->to($return_to); }
         return redirect()->back();
     }
-
-    /**
-     * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
-     * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
-     * objeto), exibindo-os em uma tela para o usuário.
-     * @return View
-     */
-    public function atendimentos(): View
-    {
-        \UspTheme::activeUrl('equivalencias/atendimentos');
-
-        $workflowsDisplay = Workflow::listarWorkflowsObjectsRelacionados();
-        $workflowsDisplay['workflows'] = collect($workflowsDisplay['workflows'] ?? [])
-            ->unique('id')
-            ->values();
-
-        return view('uspdev-workflow::object.userRelatedObjects', compact('workflowsDisplay'));
-
-    }
 }
