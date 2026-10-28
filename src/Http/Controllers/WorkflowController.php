@@ -89,8 +89,8 @@ class WorkflowController extends Controller
         $message = '';
 
         $deleted = $workflowDef->destroyDefinition();
-        if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
-        else {$status = 'danger'; $message = 'Impossível remover definition.';}
+        if($deleted){$status = 'alert-success'; $message = 'Definition apagada com sucesso.';}
+        else {$status = 'alert-danger'; $message = 'Impossível remover definition.';}
 
         return redirect()->route('workflows.list-definitions')->with($status, $message);
     }
