@@ -21,7 +21,6 @@ Lista de roles disponíveis no workflow.
 | source | opt             |
 
 
-// todo: mudar nome source para binding. fica mais compatível com bindings do transitions
 
 ### Descrição dos campos
 
@@ -31,6 +30,8 @@ Lista de roles disponíveis no workflow.
 * Todas as roles utilizadas em `places.roles` e `transitions.notifications` devem estar definidas aqui.
 * Roles sem source são persistidas em `workflow_definition_roles`.
 * Roles com source são dinâmicas e resolvidas a partir dos dados da instância do workflow.
+
+> Dentro do sistema, as 'roles' do workflow forma implementadas como Permissions da biblioteca Spatie, dado a simplicidade da implementação e da atribuição destes papéis aos usuários
 
 ---
 ## places
@@ -178,12 +179,11 @@ Todos DTOs devem possuir `fromArray`, `toArray` e `validate`.
 
 ## Resolver
 
-* Resolver é um método
+* Resolver é um método, que recebe uma string e um valor, faz o match e manipula o valor da maneira desejada antes de retornar.
 
 ```php
-Workflow::resolver('user_by_codpes', function ($value) {
-    return User::where('codpes', $value)->first();
-});
+/** @var WorkflowObject */
+$workflowObject->resolveBindingValues(string $resolver, mixed $value): mixed
 ```
 
 ## Notifications

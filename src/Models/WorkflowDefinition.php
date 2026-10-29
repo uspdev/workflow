@@ -4,6 +4,7 @@ namespace Uspdev\Workflow\Models;
 
 use App\Models\User;
 use DB;
+use Gate;
 use Graphp\Graph\Graph;
 use Graphp\GraphViz\GraphViz;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -54,13 +56,13 @@ class WorkflowDefinition extends Model
     private function deployRoles()
     {
         $roles = $this->definition['roles'];
-
+        
         foreach($roles as $roleData)
         {
-            $role = Role::firstOrCreate(
+            Role::firstOrCreate(
                 [
                     'name' => $roleData['name'],
-                    'guard_name' => config('uspdev-workflow.guard_name', 'workflow') . '_' . $this->id,
+                    'guard_name' =>  config('uspdev-workflow.guard_name', 'workflow_').$this->id,
                 ]
             );
         }
@@ -72,10 +74,12 @@ class WorkflowDefinition extends Model
      */
     private function deleteRoles(): void
     {
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+
         $roles = $this->definition['roles'];
         foreach($roles as $roleData)
         {
-            Role::where(['name' => $roleData['name']])->delete();
+            Role::where(['name' => $roleData['name'], 'guard_name' => $guard_name])->delete();
         }
     }
 
@@ -89,15 +93,17 @@ class WorkflowDefinition extends Model
      */
     public function verifyRole(string|array $roleNames, User $user): bool
     {
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$this->id;
+
         if(!is_array($roleNames)){ $roleNames = [$roleNames]; }
         $allRoles = $this->getDefinitionData()->roles;
 
         foreach($roleNames as $roleName)
         {
-            if($user->hasRole($roleName . '_wf_' . $this->id))
+            if($user->hasRole($roleName, $guard_name))
             { return true; }
 
-            $role = $allRoles->where('name', $roleName)->firstOrFail();
+            $role = $allRoles->where('name', $roleName)->first();
             
             // Trata o caso em que a role está associada à uma permission por 'source'
             if(isset($role->source) && $role->source[0] == '*')
@@ -105,11 +111,11 @@ class WorkflowDefinition extends Model
                 // A string em $role->source tem formato '*guard_name.NomePerm', então faz essa separação em um array
                 $sourceData = explode(".", substr($role->source, 1));
                 
-                if($user->hasPermissionTo($sourceData[1], $sourceData[0])) { return true; };
+                if($user->hasRole($sourceData[1], $sourceData[0])) { return true; };
             }
         }
 
-        return false;
+        return false || Gate::forUser($user)->allows('admin');
     }
 
     /**
@@ -251,6 +257,16 @@ class WorkflowDefinition extends Model
     }
 
     /**
+     * Verifica se a definição está ou não publicada, retornando true em caso 
+     * afirmativo e false c.c
+     * @return boolean
+     */
+    public function isPublished()
+    {
+        return $this->status == WorkflowStatus::PUBLISHED;
+    }
+
+    /**
      * Recupera os dados da definição da maneira formatada em WorkflowDefinitionData
      * @return WorkflowDefinitionData
      */
@@ -389,14 +405,15 @@ class WorkflowDefinition extends Model
 
     public static function findUsersWithRole(string $roleName, string $defName, int $defVersion)
     {
-           $workflowDef = SELF::_load($defName, $defVersion);
-           $users = User::all();
-           
-           $users = $users->filter(function($user) use ($workflowDef, $roleName){
-                return $workflowDef->verifyRole($roleName, $user);
-           });
+        
+        $workflowDef = SELF::_load($defName, $defVersion);
+        $users = User::all();
+    
+        $users = $users->filter(function($user) use ($workflowDef, $roleName){
+            return $workflowDef->verifyRole($roleName, $user);
+        });
 
-           return $users;
+        return $users;
     }
 
     // **************************************
@@ -581,5 +598,63 @@ class WorkflowDefinition extends Model
         $workflowData['version'] = $workflowDefinition->version;
 
         return $workflowData;
+    }
+
+    /**
+     * Retorna todas as definições cujo status é 'PUBLISHED'
+     * @return Collection<int, WorkflowDefinition>
+     */
+    public static function getAllPublished()
+    {
+        $all = SELF::all();
+        return $all->filter(function($workflowDef){
+                return $workflowDef->status === WorkflowStatus::PUBLISHED;
+        });
+    }
+
+    /**
+     * Gerencia o relacionamento de um usuário com a role da definição (atribuindo-a 
+     * ou removendo-a do usuário)
+     * @param Integer $request->codpes_rem
+     * @param Integer $request->codpes_add
+     * @param String $request->place
+     * @param String $request->workflowDefinitionName     
+    */
+    public static function mngUsrRoleRelation(Request $request)
+    {
+        $codpes_rem = $request->input('codpes_rem');
+        $codpes_add = $request->input('codpes_add');
+        $wf_id = $request->input('wf_id');
+        $roleName = $request->input('role');
+        $guard_name = config('uspdev-workflow.guard_name', 'workflow_').$wf_id;
+        $user = Auth::user();
+
+        if (! $user->hasRole($roleName, $guard_name) && ! Gate::allows('admin')) {
+            return response()->json(['alert-danger' => 'Você não tem permissão para gerenciar este departamento.'], 403);
+        }
+
+        if ($codpes_rem) {
+            $userToRemove = User::where('codpes', $codpes_rem)->first();
+            if ($userToRemove) {
+                $role = Role::where([
+                        'name' => $roleName,
+                        'guard_name' => $guard_name
+                    ])->first();
+
+                $userToRemove->removeRole($role);
+                $request->session()->flash('alert-warning', 'Usuário removido com sucesso!');
+            }
+        }
+        
+
+        if ($codpes_add) {
+            $userToAdd = User::findOrCreateFromReplicado($codpes_add);
+            if ($userToAdd) {
+                $role = Role::findOrCreate($roleName, $guard_name);
+                $userToAdd->assignRole($role);
+
+                $request->session()->flash('alert-success', 'Usuário adicionado com sucesso!');
+            }
+        }
     }
 }

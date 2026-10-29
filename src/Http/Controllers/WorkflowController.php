@@ -63,14 +63,14 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Define o relacionamento entre um usuário e um place específico do workflow,
+     * Define o relacionamento entre um usuário e uma role específica do workflow,
      * baseados nos dados da requisição '$request'.
      * @param Request $request
      * @return RedirectResponse
      */
-    public function setUser(Request $request): RedirectResponse 
+    public function mngUserRole(Request $request): RedirectResponse 
     {
-        Workflow::definirUsuarios($request);
+        WorkflowDefinition::mngUsrRoleRelation($request);
 
         return back();
     }
@@ -89,8 +89,8 @@ class WorkflowController extends Controller
         $message = '';
 
         $deleted = $workflowDef->destroyDefinition();
-        if($deleted){$status = 'success'; $message = 'Definition apagada com sucesso.';}
-        else {$status = 'danger'; $message = 'Impossível remover definition.';}
+        if($deleted){$status = 'alert-success'; $message = 'Definition apagada com sucesso.';}
+        else {$status = 'alert-danger'; $message = 'Impossível remover definition.';}
 
         return redirect()->route('workflows.list-definitions')->with($status, $message);
     }
@@ -149,32 +149,6 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Exibe as definições de workflow para que possa criar objetos das que desejar.
-     * @return View
-     */
-    public function viewCreateObject(): View
-    {
-        $workflowDefinitions = Workflow::obterTodosWorkflowDefinitions();
-        \UspTheme::activeUrl('viewcreateobject');
-
-        return view('uspdev-workflow::object.createObject', compact('workflowDefinitions'));
-    }
-
-    /**
-     * Cria o objeto do workflow, baseado no nome da definição, o persistindo no banco de dados
-     * Além disso, prepara os dados para a exibição do objeto e o mostra para o usuário após a criação
-     * @param mixed $definitionName
-     * @return RedirectResponse
-     */
-    public function createObject(string $definitionName): RedirectResponse
-    {
-        $model = new WorkflowDefinition();
-
-        $workflowObject = Workflow::start($definitionName, $model);
-        return redirect()->route('workflows.showObject', ['id' => $workflowObject->id]);
-    }
-
-    /**
      * Exibe os objetos de workflow atrelados ao usuário, ou seja, os objetos criados pelo usuário
      * ou objetos nos quais ele têm algum atendimento à fazer.
      * @return View
@@ -217,283 +191,12 @@ class WorkflowController extends Controller
      */
     public function showObject(int $id): View
     {
+        /** @var WorkflowObject */
+        $workflowObj = WorkflowObject::find($id);
         
-        $workflowObjectData = WorkflowObject::getObjectData($id);
-        $workflowObjectData = $this->prepararDadosDaTelaDoObjeto($workflowObjectData);
-
+        $workflowObjectData = $workflowObj->getObjectData();
+        
         return view('uspdev-workflow::object.show.showObject', compact('workflowObjectData'));
-    }
-
-    /**
-     * Prepara os dados do objeto para serem exibidos, construindo as orientações para o usuário, 
-     * transições visiveis atualmente, o histórico dos estados, e outras informações úteis ao usuário.
-     * @param array $workflowObjectData
-     * @return array
-     */
-    private function prepararDadosDaTelaDoObjeto(array $workflowObjectData): array
-    {
-        $workflowObjectData['orientacaoUsuario'] = $this->construirOrientacaoUsuario($workflowObjectData);
-        $workflowObjectData['historicoEstados'] = $this->construirHistoricoEstados($workflowObjectData);
-        $workflowObjectData['transicoesVisiveis'] = $this->construirTransicoesVisiveis($workflowObjectData);
-        $workflowObjectData['transicoesAdmin'] = $this->construirTransicoesAdmin($workflowObjectData);
-
-        // dd($workflowObjectData['historicoEstados']);
-        return $workflowObjectData;
-    }
-
-    /**
-     * Monta as transições visíveis ao usuário, ou seja, verifica se para aquele place atual o usuário
-     * tem um papel à desempenhar, ou seja, está apto a visualizar as transitions. O admin pode 
-     * visualizar todas as transitions.
-     * @param array $workflowObjectData
-     * @return array<array>
-     */
-    private function construirTransicoesVisiveis(array $workflowObjectData): array
-    {
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
-        
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        $usuario = auth()->user();
-        $resultado = [];
-
-        $formatted_places = [];
-        for($i = 0; $i < sizeof($lugares); $i++)
-        {
-            $formatted_places[$lugares[$i]['name']] = $lugares[$i];
-        }
-
-        foreach ($workflowObjectData['workflowObject']->current_places as $place) 
-        {
-            $curr_trans = array_filter($transicoes, function ($transicao) use ($place) {
-                return $transicao['from'] === $place;
-            });
-            $resultado[$place] = [];
-            
-            foreach ($curr_trans as $transicao) 
-            {
-                $temPapel = false;
-                foreach (array_values($formatted_places[$place]['roles'] ?? []) as $papel) 
-                { 
-                    if (isset($usuario) && $usuario->hasRole($papel)) 
-                    {
-                        $temPapel = true;
-                        break;
-                    }
-                }
-                if ($temPapel)
-                {
-                    $resultado[$place][$transicao['name']] = $transicao;
-                }
-            }
-        }
-
-        return $resultado;
-    }
-
-    /**
-     * Constrói a estrutura para exibir a transition com informações úteis ao admin, contendo detalhes 
-     * sobre a transition, como se esta tem formulário, está habilitada, se o usuário tem permissão 
-     * para executar a transition, entre outros,retornando o resultado em um array.
-     * @param array $workflowObjectData
-     * @return array{estaHabilitada: bool, label: mixed, temFormulario: bool, temPermissao: bool[]}
-     */
-    private function construirTransicoesAdmin(array $workflowObjectData): array
-    {
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-
-        $listaHabilitadasName = [];
-        foreach($workflowObjectData['workflowsTransitions']['enabled'] ?? [] as $transicaoHabilitada) 
-        {
-            $listaHabilitadasName[] = $transicaoHabilitada->name;
-        }
-        
-        $formularios = $workflowObjectData['forms'] ?? [];
-        $usuario = auth()->user();
-        $resultado = [];
-
-        foreach ($workflowObjectData['workflowsTransitions']['all'] ?? [] as $Transicao) {
-            $dadosTransicao = $Transicao->toArray();
-            $temFormulario = isset($dadosTransicao['form']) ? true : false;
-            $estaHabilitada = in_array($dadosTransicao['name'], $listaHabilitadasName, true);
-
-            $roles = array_values($lugares[$dadosTransicao['from']]['role'] ?? []);
-            
-            $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
-
-            $temPermissao = false;
-
-            if ($estaHabilitada) 
-            {
-                $has_role = empty($roles) ? true : $usuario->hasAnyRole($roles);
-                $temPermissao = $has_role || Gate::allows('admin');    
-            }
-
-            $resultado[$dadosTransicao['name']] = [
-                'label' => $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($dadosTransicao['name'])),
-                'temFormulario' => $temFormulario,
-                'estaHabilitada' => $estaHabilitada,
-                'temPermissao' => $temPermissao,
-            ];
-        }
-
-        return $resultado;
-    }
-
-    /**
-     * Monta orientações ao usuário, baseado no place atual em que objeto se encontra e nas transitions
-     * habilitadas. Dessa forma, retorna uma estrutura que guarda informações relevantes, como mensagens
-     * auxiliares, ações possíveis, descrição dos estados atuais, entre outros.
-     * @param array $workflowObjectData
-     * @return array{acoesDisponiveis: array, estadosAtuais: mixed, mensagem: string, titulo: string, variante: string}
-     */
-    private function construirOrientacaoUsuario(array $workflowObjectData): array
-    {
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        // Obter as chaves dos estados atuais do objeto e mapear para suas descrições
-        $chavesEstadoAtual = array_values($workflowObjectData['workflowObject']->current_places ?? []);
-        $descricoesEstadoAtual = collect($chavesEstadoAtual)
-            ->map(function ($chaveEstado) use ($lugares) {
-                return $lugares[$chaveEstado]['description'] ?? $chaveEstado;
-            })
-            ->values()
-            ->all();
-
-        $transicoesDisponiveis = $this->obterTransicoesVisiveisParaUsuario($workflowObjectData);
-        if (! empty($transicoesDisponiveis)) {
-            return [
-                'variante' => 'warning',
-                'titulo' => 'Ação necessária',
-                'mensagem' => 'Existe uma ação pendente para você nesta solicitação.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => array_values($transicoesDisponiveis),
-            ];
-        }
-
-        $textoEstados = Str::lower(implode(' ', $descricoesEstadoAtual));
-
-        if (Str::contains($textoEstados, ['analise', 'análise', 'conferencia', 'conferência', 'deliberar'])) {
-            return [
-                'variante' => 'info',
-                'titulo' => 'Em análise',
-                'mensagem' => 'Seu formulário está em análise. Nenhuma ação necessária no momento.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => [],
-            ];
-        }
-
-        if (Str::contains($textoEstados, ['concluido', 'concluído', 'finalizado', 'deferido', 'indeferido'])) {
-            return [
-                'variante' => 'success',
-                'titulo' => 'Processo concluído',
-                'mensagem' => 'A solicitação foi finalizada. Nenhuma ação necessária no momento.',
-                'estadosAtuais' => $descricoesEstadoAtual,
-                'acoesDisponiveis' => [],
-            ];
-        }
-
-        return [
-            'variante' => 'info',
-            'titulo' => 'Acompanhamento da solicitação',
-            'mensagem' => 'Nenhuma ação necessária no momento.',
-            'estadosAtuais' => $descricoesEstadoAtual,
-            'acoesDisponiveis' => [],
-        ];
-    }
-
-    /**
-     * Recupera as transitions as quais o usuário tem possibilidade de enxergar, baseado nos papéis
-     * do place atual que o objeto se encontra, referenciado em '$workflowObjectData', e nas transitions 
-     * habilitadas para o objeto. Admins podem visualizar todas as transitions habilitadas.
-     * @param array $workflowObjectData
-     * @return array
-     */
-    private function obterTransicoesVisiveisParaUsuario(array $workflowObjectData): array
-    {
-        $transicoesVisiveis = [];
-        $transicoes = $workflowObjectData['workflowDefinition']->definition['transitions'] ?? [];
-        $lugares = $workflowObjectData['workflowDefinition']->definition['places'] ?? [];
-        $chavesEstadoAtual = array_keys($workflowObjectData['workflowObject']->state ?? []);
-        $transicoesHabilitadas = $workflowObjectData['workflowsTransitions']['enabled'] ?? [];
-        $usuario = auth()->user();
-
-        foreach ($chavesEstadoAtual as $chaveEstado) {
-            // Verificar cada transição para ver se ela é aplicável ao estado atual e se o usuário tem permissão para executá-la
-            foreach ($transicoes as $nomeTransicao => $dadosTransicao) {
-                if (($dadosTransicao['from'] ?? null) !== $chaveEstado) {
-                    continue;
-                }
-
-                if (! in_array($nomeTransicao, $transicoesHabilitadas, true)) {
-                    continue;
-                }
-                // Verificar se o usuário tem pelo menos um dos papéis necessários para executar a transição
-                $papeisNecessarios = array_values($lugares[$chaveEstado]['role'] ?? []);
-                $temPapel = false;
-                foreach ($papeisNecessarios as $papel) {
-                    if (($usuario && $usuario->hasRole($papel)) || Gate::allows('admin')) {
-                        $temPapel = true;
-                        break;
-                    }
-                }
-                // Se o usuário tiver permissão, adicionar a transição à lista de transições visíveis
-                if ($temPapel) {
-                    $transicoesVisiveis[$nomeTransicao] =
-                        $dadosTransicao['label'] ?? Str::replace('_', ' ', ucfirst($nomeTransicao));
-                }
-            }
-        }
-
-        return $transicoesVisiveis;
-    }
-
-    /**
-     * Constrói o histórico de estados do objeto, ou seja, quais foram as transitions executadas (ou 
-     * seja, quais foram as submissões de formulário realizadas) e ,portanto, qual place fora percorrido 
-     * ou não, quando houve retorno para o usuário, entre outros detalhes, gerando assim uma descrição 
-     * legível dos acontecimentos do workflow para o usuário
-     * @param array $workflowObjectData
-     * @return array
-     */
-    private function construirHistoricoEstados(array $workflowObjectData): array
-    {
-        $historicoEstados = [];
-
-        /** @var WorkflowDefinition */
-        $workflowDef = $workflowObjectData['workflowDefinition'];
-
-        /** @var WorkflowHistory */
-        $wfHistory = $workflowObjectData['workflowObject']->history;
-        
-        foreach($wfHistory as $history)
-        {
-            $actLbl = $workflowDef->transition($history['transition_name'])->label;
-            $userCodpes = User::where('id', $history['user_id'])->value('codpes');
-
-            $fromLbls = [];
-            foreach($history['from_places'] as $from)
-            {
-                $fromLbls[] = $workflowDef->place($from)->label;    
-            }
-
-            $toLbls = [];
-            foreach($history['to_places'] as $to)
-            {
-                $toLbls[] = $workflowDef->place($to)->label;    
-            }
-
-            $historicoEstados[] = [
-                'action' => $actLbl,
-                'froms' => $fromLbls,
-                'tos' => $toLbls,
-                'user_codpes' => $userCodpes,
-                'form_sub_id' => $history['form_submission_id'],
-                'metadata' => $history['meatadata'],
-                'created_at' => $history['created_at']->format('d/m/Y H:i:s'),
-                'updated_at' => $history['updated_at']->format('d/m/Y H:i:s'),
-            ];
-        }
-
-        return $historicoEstados;
     }
 
     public function deleteObject($workflowObjectId)
@@ -517,26 +220,12 @@ class WorkflowController extends Controller
         
         $workflow_object = WorkflowObject::findOrFail($id);
         $workflow_object->apply($request->input('transition'), $request->all(), Auth()->user());
+        
+        // $return_to armazena a url de retorno, dado que a view do estado do objeto é dependente da aplicação. Dessa forma, return_to explicita a url de retorno, necessária quando há formulário na transição.
+        $return_to = $request->input('return_to');
 
-        return redirect()->route('workflows.showObject', ['id' => $workflow_object->id]);
-    }
-
-    /**
-     * Lista todos os objetos de workflow relacionados ao usuário, ou seja, objetos criados por ele ou 
-     * objetos nos quais ele tem algum atendimento a fazer (tem a role competente ao place atual do 
-     * objeto), exibindo-os em uma tela para o usuário.
-     * @return View
-     */
-    public function atendimentos(): View
-    {
-        \UspTheme::activeUrl('equivalencias/atendimentos');
-
-        $workflowsDisplay = Workflow::listarWorkflowsObjectsRelacionados();
-        $workflowsDisplay['workflows'] = collect($workflowsDisplay['workflows'] ?? [])
-            ->unique('id')
-            ->values();
-
-        return view('uspdev-workflow::object.userRelatedObjects', compact('workflowsDisplay'));
-
+        // Verifica se return_to está setado, se não, retorna para a rota de origem
+        if(isset($return_to)){ return redirect()->to($return_to); }
+        return redirect()->back();
     }
 }
